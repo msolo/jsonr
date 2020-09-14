@@ -72,6 +72,15 @@ func TestElement(t *testing.T) {
 	checkItem(t, tl[1], `null`)
 }
 
+func TestElementString(t *testing.T) {
+	tl := lexToSlice(t, `"1\t2"`)
+	checkItem(t, tl[0], `"1\t2"`)
+	tl = lexToSlice(t, `"1\x2"`)
+	checkItem(t, tl[0], `invalid escaped character`)
+	tl = lexToSlice(t, `"1\u000"`)
+	checkItem(t, tl[0], `invalid unicode escape sequence`)
+}
+
 func TestElementNull(t *testing.T) {
 	tl := lexToSlice(t, `null`)
 	checkItem(t, tl[0], `null`)

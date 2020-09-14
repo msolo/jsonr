@@ -179,22 +179,30 @@ func lexNumber(l *lexer) {
 	l.emit(itemNumber)
 }
 
-func lexString(l *lexer) stateFn {
+func lexString(l *lexer) {
 	// swallow leading "
 	l.pos += 1
 	for {
-		if hasPrefixByte(l.input[l.pos:], '"') {
+		switch {
+		case hasPrefixByte(l.input[l.pos:], '"'):
 			l.pos += 1 // swallow ending "
 			l.emit(itemString)
-			return nil
-		}
-		// look for escaped \""
-		if strings.HasPrefix(l.input[l.pos:], "\\\"") {
-			l.pos += 2
-			continue
+			return
+		case l.accept(`\`):
+			switch {
+			case l.accept(`"\/bfnrt`):
+			case l.accept("u"):
+				for i := 0; i < 4; i++ {
+					if l.accept("0123456789abcdefABCDEF") {
+						l.errorf("invalid unicode escape sequence")
+					}
+				}
+			default:
+				l.errorf("invalid escaped character")
+			}
 		}
 		if l.next() == eof {
-			return l.errorf("unexected EOF scanning string")
+			l.errorf("unexected EOF scanning string")
 		}
 	}
 }
