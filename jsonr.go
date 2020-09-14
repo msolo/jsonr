@@ -8,17 +8,13 @@ package jsonr
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
-	"io/ioutil"
 )
 
 // See json.Unmarsal.
 func Unmarshal(data []byte, v interface{}) error {
-	buf, err := StripComments(data)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(buf, v)
+	return fmt.Errorf("FIXME")
 }
 
 type jsonrReader struct {
@@ -27,18 +23,8 @@ type jsonrReader struct {
 }
 
 func (jr *jsonrReader) Read(b []byte) (n int, err error) {
-	if jr.buf == nil {
-		in, err := ioutil.ReadAll(jr.r)
-		if err != nil {
-			return 0, err
-		}
-		stripped, err := StripComments(in)
-		if err != nil {
-			return 0, err
-		}
-		jr.buf = bytes.NewBuffer(stripped)
-	}
-	return jr.buf.Read(b)
+	return 0, fmt.Errorf("FIXME")
+
 }
 
 // FIXME(msolo) This strips a whole buffer at a time rather than reading incrementally from the underlying reader. No one should confuse JSONR for something high performance, but we needed waste too many resources.
