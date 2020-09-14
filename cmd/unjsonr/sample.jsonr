@@ -1,0 +1,18 @@
+/*
+You can see that comments are safely valid in any sane place.
+
+You can put a lenghty preamble or embed a poem if necessary.
+*/
+{
+  // Line comment.
+  "x": "a string", // Trailing comment.
+  "y": 1.0,
+  "z": null,
+  "quoted-range": "/* this is not a comment *",
+  "quoted-line": "// this is also not a comment",
+  // "a": "value temporarily removed for debugging or idle curiosity",
+  "array": [],
+  "dict": {} // Wish we could have a trailing comma here,
+  // but that's a problem for a better parser.
+}
+// Postamble.
