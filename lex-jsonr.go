@@ -2,14 +2,6 @@ package jsonr
 
 import "strings"
 
-// stream: ( string | raw | comment )*
-// comment: line-comment range-comment
-// string: '"' ( [^"] | '\"' )* '"'
-// raw: [^"]
-// non-newline: [^\n]
-// line-comment: '//' non-newline
-// range-comment: '/*' any '*/'
-
 const (
 	itemError itemType = iota // error occurred; value is text of error
 
