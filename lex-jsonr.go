@@ -1,6 +1,8 @@
 package jsonr
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	itemError itemType = iota // error occurred; value is text of error
@@ -100,6 +102,7 @@ func lexMembers(l *lexer) {
 }
 
 func lexMember(l *lexer) {
+	lexWhitespace(l)
 	if !l.accept(`"`) {
 		l.errorf("object key must be string")
 		return

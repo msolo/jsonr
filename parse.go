@@ -6,19 +6,34 @@ import (
 )
 
 type parser struct {
-	lex  *lexer
-	item item
+	lex       *lexer
+	item      item
+	peekItems []item
 }
 
 func (p *parser) next() item {
+	if len(p.peekItems) > 0 {
+		p.item = p.peekItems[0]
+		p.peekItems = p.peekItems[1:]
+		return p.item
+	}
 	p.item = p.lex.yield()
 	//fmt.Println("item", p.item)
 	return p.item
 }
 
+func (p *parser) peek() item {
+	i := p.lex.yield()
+	p.peekItems = append(p.peekItems, i)
+	return i
+}
+
 func (p *parser) parse(input string) (interface{}, error) {
 	p.lex = lex("parse-lexer", input)
-	p.next()
+	i := p.next()
+	if i.typ == itemWhitespace {
+		i = p.next()
+	}
 	return p.parseElement()
 }
 
@@ -33,6 +48,9 @@ func (p *parser) parseElement() (interface{}, error) {
 	case itemNull:
 		return nil, nil
 	case itemNumber:
+		// FIXME(msolo) Doesn't have to be a float if I'm reading the spec
+		// correctly, but perhaps this a concession to informal
+		// compatibility?
 		x, err := strconv.ParseFloat(p.item.val, 64)
 		return x, err
 	case itemArrayOpen:
@@ -49,11 +67,12 @@ func (p *parser) parseElement() (interface{}, error) {
 
 func (p *parser) parseArray() (interface{}, error) {
 	x := make([]interface{}, 0, 16)
-
 	for {
 		i := p.next()
 	onLast:
 		switch i.typ {
+		case itemWhitespace:
+			continue
 		case itemArrayClose:
 			return x, nil
 		case itemEOF:
@@ -65,6 +84,9 @@ func (p *parser) parseArray() (interface{}, error) {
 			}
 			x = append(x, y)
 			i = p.next()
+			if i.typ == itemWhitespace {
+				i = p.next()
+			}
 			if i.typ != itemComma {
 				goto onLast
 			}
@@ -77,26 +99,38 @@ func (p *parser) parseObject() (interface{}, error) {
 	for {
 		i := p.next()
 	onLast:
-		if i.typ == itemObjectClose {
+		switch {
+		case i.typ == itemWhitespace:
+			continue
+		case i.typ == itemObjectClose:
 			return x, nil
-		}
-		if i.typ != itemString {
+		case i.typ == itemString:
+			key := i.val[1 : len(i.val)-1]
+			i = p.next()
+			if i.typ == itemWhitespace {
+				i = p.next()
+			}
+			if i.typ != itemColon {
+				return nil, fmt.Errorf("expected colon delimiter for key token")
+			}
+			i = p.next()
+			if i.typ == itemWhitespace {
+				i = p.next()
+			}
+			val, err := p.parseElement()
+			if err != nil {
+				return nil, err
+			}
+			x[key] = val
+			i = p.next()
+			if i.typ == itemWhitespace {
+				i = p.next()
+			}
+			if i.typ != itemComma {
+				goto onLast
+			}
+		default:
 			return nil, fmt.Errorf("invalid key token %v", i)
-		}
-		key := i.val[1 : len(i.val)-1]
-		i = p.next()
-		if i.typ != itemColon {
-			return nil, fmt.Errorf("expected colon delimter for key token")
-		}
-		i = p.next()
-		val, err := p.parseElement()
-		if err != nil {
-			return nil, err
-		}
-		x[key] = val
-		i = p.next()
-		if i.typ != itemComma {
-			goto onLast
 		}
 	}
 }
