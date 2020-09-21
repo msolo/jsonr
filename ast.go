@@ -1,8 +1,10 @@
 package jsonr
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 type File struct {
@@ -112,6 +114,7 @@ func Inspect(node Node, f func(Node) bool) {
 
 func prettyFmt(data interface{}) string {
 	var p []byte
+	// Oh, the irony.
 	p, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err.Error()
@@ -119,15 +122,67 @@ func prettyFmt(data interface{}) string {
 	return string(p)
 }
 
-// func Print(node Node) {
-// 	Inspect(node, func(n Node) bool {
-// 		switch tn := n.(type) {
-// 		case *File:
-// 		case *Literal:
-// 		}
-// 		return true
-// 	})
-// }
+type formatter struct {
+	indentLevel    int
+	skipNextIndent bool
+}
+
+func (f *formatter) fmtNode(n Node) string {
+	b := &bytes.Buffer{}
+
+	indent := func() {
+		if f.skipNextIndent {
+			f.skipNextIndent = false
+			return
+		}
+		b.WriteString(strings.Repeat("  ", f.indentLevel))
+	}
+
+	switch tn := n.(type) {
+	case *File:
+		b.WriteString(f.fmtNode(tn.Root))
+		b.WriteString("\n")
+	case *Literal:
+		indent()
+		b.WriteString(tn.Value)
+	case *Array:
+		indent()
+		b.WriteString("[")
+		if len(tn.Elements) != 0 {
+			f.indentLevel++
+			b.WriteString("\n")
+			for _, e := range tn.Elements {
+				b.WriteString(f.fmtNode(e.Value))
+				b.WriteString(",\n")
+			}
+			f.indentLevel--
+			indent()
+		}
+		b.WriteString("]")
+	case *Object:
+		indent()
+		b.WriteString("{")
+		if len(tn.Fields) != 0 {
+			f.indentLevel++
+			b.WriteString("\n")
+			for _, fl := range tn.Fields {
+				b.WriteString(f.fmtNode(fl.Name))
+				b.WriteString(": ")
+				f.skipNextIndent = true
+				b.WriteString(f.fmtNode(fl.Value))
+				b.WriteString(",\n")
+			}
+			f.indentLevel--
+			indent()
+		}
+		b.WriteString("}")
+	}
+	return b.String()
+}
+
+func jsonFmt(node Node) string {
+	return (&formatter{}).fmtNode(node)
+}
 
 type astParser struct {
 	lex       *lexer
@@ -169,7 +224,7 @@ func (p *astParser) parseElement() (Node, error) {
 	switch p.item.typ {
 	case itemString:
 		return &Literal{Type: LiteralString,
-			Value: p.item.val[1 : len(p.item.val)-1]}, nil
+			Value: p.item.val}, nil
 	case itemTrue:
 		return &Literal{Type: LiteralTrue, Value: "true"}, nil
 	case itemFalse:

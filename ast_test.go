@@ -14,61 +14,54 @@ func TestAstParse(t *testing.T) {
 			t.Fatal(input, err)
 		}
 		if !reflect.DeepEqual(v, expectedVal) {
+			prettyExpected := prettyFmt(expectedVal)
+			prettyGot := prettyFmt(v)
 			diff := difflib.UnifiedDiff{
-				A:        difflib.SplitLines(prettyFmt(expectedVal)),
-				B:        difflib.SplitLines(prettyFmt(v)),
-				FromFile: "Original",
-				ToFile:   "Current",
+				A:        difflib.SplitLines(prettyExpected),
+				B:        difflib.SplitLines(prettyGot),
+				FromFile: "expected",
+				ToFile:   "got",
 				Context:  3,
 			}
-			text, err := difflib.GetUnifiedDiffString(diff)
+			diffText, err := difflib.GetUnifiedDiffString(diff)
 			if err != nil {
-				text = err.Error()
+				diffText = err.Error()
 			}
 
-			t.Fatalf("expected: %s\ngot %s", prettyFmt(expectedVal), text)
-			//t.Fatalf(`expected %#v, got %#v`, expectedVal, v)
+			t.Fatalf("expected: %s\ngot: %s\ndiff:\n%s", prettyExpected, prettyGot, diffText)
+		}
+
+		// Can we rewrite the same code we had as input?
+		output := jsonFmt(v)
+		if input != output {
+			diff := difflib.UnifiedDiff{
+				A:        difflib.SplitLines(input),
+				B:        difflib.SplitLines(output),
+				FromFile: "expected",
+				ToFile:   "go",
+				Context:  3,
+			}
+			diffText, err := difflib.GetUnifiedDiffString(diff)
+			if err != nil {
+				diffText = err.Error()
+			}
+
+			t.Fatalf("expected: %s\ngot: %s\ndiff:\n%s", input, output, diffText)
 		}
 	}
 
-	// checkAst := func(input string, expectedVal Node) {
-	// 	v, err := (&astParser{}).parse(input)
-	// 	if err != nil {
-	// 		t.Fatal(input, err)
-	// 	}
-	// 	nodes := make([]Node, 0, 32)
-	// 	expectedNodes := make([]Node, 0, 32)
-
-	// 	Inspect(expectedVal, func(n Node) bool {
-	// 		expectedNodes = append(expectedNodes, n)
-	// 		return true
-	// 	})
-
-	// 	Inspect(v, func(n Node) bool {
-	// 		nodes = append(nodes, n)
-	// 		return true
-	// 	})
-
-	// 	if len(nodes) != len(expectedNodes) {
-	// 		t.Fatalf(`expected %d nodes, got %d`, len(expectedNodes), len(nodes))
-	// 	}
-	// 	for i := len(nodes) - 1; i >= 0; i-- {
-	// 		if !reflect.DeepEqual(nodes[i], expectedNodes[i]) {
-	// 			t.Fatalf(`expected %s:\ngot %s`, prettyFmt(expectedNodes[i]), prettyFmt(nodes[i]))
-	// 		}
-	// 	}
-	// }
-
-	checkParsedVal(`"tiptop"`,
+	checkParsedVal(`"tiptop"
+`,
 		&File{
 			Root: &Literal{
 				Type:  LiteralString,
-				Value: "tiptop",
+				Value: `"tiptop"`,
 			},
 		},
 	)
 
-	checkParsedVal(`true`,
+	checkParsedVal(`true
+`,
 		&File{
 			Root: &Literal{
 				Type:  LiteralTrue,
@@ -77,7 +70,8 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`false`,
+	checkParsedVal(`false
+`,
 		&File{
 			Root: &Literal{
 				Type:  LiteralFalse,
@@ -86,7 +80,8 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`null`,
+	checkParsedVal(`null
+`,
 		&File{
 			Root: &Literal{
 				Type:  LiteralNull,
@@ -95,7 +90,8 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`-3.1981e4`,
+	checkParsedVal(`-3.1981e4
+`,
 		&File{
 			Root: &Literal{
 				Type:  LiteralNumber,
@@ -104,7 +100,8 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`[]`,
+	checkParsedVal(`[]
+`,
 		&File{
 			Root: &Array{
 				[]*Element{},
@@ -112,7 +109,10 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`[null]`,
+	checkParsedVal(`[
+  null,
+]
+`,
 		&File{
 			Root: &Array{
 				[]*Element{
@@ -127,7 +127,8 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`{}`,
+	checkParsedVal(`{}
+`,
 		&File{
 			Root: &Object{
 				[]*Field{},
@@ -135,14 +136,17 @@ func TestAstParse(t *testing.T) {
 		},
 	)
 
-	checkParsedVal(`{"x":null}`,
+	checkParsedVal(`{
+  "x": null,
+}
+`,
 		&File{
 			Root: &Object{
 				[]*Field{
 					&Field{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: "x",
+							Value: `"x"`,
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
@@ -155,19 +159,32 @@ func TestAstParse(t *testing.T) {
 	)
 
 	checkParsedVal(`{
-  "x": null
-}`,
+  "x": {
+    "nested": null,
+  },
+}
+`,
 		&File{
 			Root: &Object{
 				[]*Field{
 					&Field{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: "x",
+							Value: `"x"`,
 						},
-						Value: &Literal{
-							Type:  LiteralNull,
-							Value: "null",
+						Value: &Object{
+							[]*Field{
+								&Field{
+									Name: &Literal{
+										Type:  LiteralString,
+										Value: `"nested"`,
+									},
+									Value: &Literal{
+										Type:  LiteralNull,
+										Value: "null",
+									},
+								},
+							},
 						},
 					},
 				},
