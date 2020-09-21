@@ -1,6 +1,8 @@
 package jsonr
 
-import "testing"
+import (
+	"testing"
+)
 
 func toSlice(t *testing.T, items chan item) []item {
 	tl := make([]item, 0, 16)
@@ -135,29 +137,56 @@ func TestObject(t *testing.T) {
 	checkTokenVals(t, tl, `{`, `"a"`, `:`, `null`, `,`, `"b"`, `:`, `null`, `}`)
 }
 
-// func TestLineComment(t *testing.T) {
-// 	tl := lexToSlice(t, `{//}\n`)
-// 	checkItem(t, tl[0], `{`)
-// }
+func TestLineComment(t *testing.T) {
+	tl := lexToSlice(t, `{
+//}
+}
+`)
+	checkItem(t, tl[0], `{`)
+}
 
-// func TestRangeComment(t *testing.T) {
-// 	tl := lexToSlice(t, `{/**/}`)
-// 	checkItem(t, tl[1], `/**/`)
-// }
+func TestRangeComment(t *testing.T) {
+	tl := lexToSlice(t, `{/**/}`)
+	checkItem(t, tl[1], `/**/`)
+}
 
-// func TestRangeCommentInString(t *testing.T) {
-// 	tl := lexToSlice(t, `{"/**/"}`)
-// 	checkItem(t, tl[1], `"/**/"`)
-// }
+func TestMultilineRangeComment(t *testing.T) {
+	tl := lexToSlice(t, `{/*
+*/}`)
+	checkItem(t, tl[1], `/*
+*/`)
+}
 
-// func TestNestedQuoteInString(t *testing.T) {
-// 	tl := lexToSlice(t, `{"\""}`)
-// 	checkItem(t, tl[1], `"\""`)
-// }
+func TestRangeCommentInString(t *testing.T) {
+	tl := lexToSlice(t, `"/**/"`)
+	checkItem(t, tl[0], `"/**/"`)
+}
 
-// func TestNoCommentTerminator(t *testing.T) {
-// 	tl := lexToSlice(t, `{/*}`)
-// 	if tl[len(tl)-1].typ != itemError {
-// 		t.Error("expected a parsing error - no comment terminator")
-// 	}
-// }
+func TestNestedQuoteInString(t *testing.T) {
+	tl := lexToSlice(t, `"\""`)
+	checkItem(t, tl[0], `"\""`)
+}
+
+func TestNoCommentTerminator(t *testing.T) {
+	tl := lexToSlice(t, `{/*}`)
+	if tl[len(tl)-1].typ != itemError {
+		t.Error("expected a parsing error - no comment terminator")
+	}
+}
+
+func TestCommentedObject(t *testing.T) {
+	tl := lexToSlice(t, `// c1
+{
+  // c2
+  "a": null, // c3
+} /* c4 */
+`)
+	tlm := make([]item, 0, len(tl))
+	// Let's just check the "meaningful" tokens for now.
+	for _, i := range tl {
+		if i.typ != itemWhitespace {
+			tlm = append(tlm, i)
+		}
+	}
+	checkTokenVals(t, tlm, `// c1`, `{`, `// c2`, `"a"`, `:`, `null`, `,`, `// c3`, `}`, `/* c4 */`)
+}

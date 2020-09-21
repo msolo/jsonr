@@ -163,7 +163,7 @@ func (l *lexer) acceptRun(valid string) (accepted bool) {
 // error returns an error token and terminates the scan
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
-func (l *lexer) errorf(format string, args ...interface{}) stateFn {
+func (l *lexer) errorf(format string, args ...interface{}) {
 	i := item{
 		itemError,
 		fmt.Sprintf(format, args...),
@@ -171,7 +171,6 @@ func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 	}
 	l.items.Put(i)
 	panic(i)
-	return nil
 }
 
 func hasPrefixByte(s string, b byte) bool {

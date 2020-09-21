@@ -35,16 +35,22 @@ func lexStream(l *lexer) stateFn {
 	}
 }
 
-func lexElement(l *lexer) {
-	lexWhitespace(l)
-	lexValue(l)
-	lexWhitespace(l)
-}
-
 func lexWhitespace(l *lexer) {
 	if l.acceptRun(" \t\r\n") {
 		l.emit(itemWhitespace)
 	}
+}
+
+func lexWhitespaceOrComment(l *lexer) {
+	lexWhitespace(l)
+	lexComment(l)
+	lexWhitespace(l) // A trailing \n is not part of the comment.
+}
+
+func lexElement(l *lexer) {
+	lexWhitespaceOrComment(l)
+	lexValue(l)
+	lexWhitespaceOrComment(l)
 }
 
 func lexValue(l *lexer) {
@@ -67,16 +73,16 @@ func lexValue(l *lexer) {
 	case strings.ContainsAny(l.input[l.pos:], "-0123456789"):
 		lexNumber(l)
 	default:
-		l.errorf("invalid element")
+		l.errorf("invalid element: %s", l.input[l.pos:l.pos+10])
 	}
 }
 
 func lexObject(l *lexer) {
 	l.pos += 1
 	l.emit(itemObjectOpen)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	lexMembers(l)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	if l.accept("}") {
 		l.emit(itemObjectClose)
 	} else {
@@ -86,7 +92,7 @@ func lexObject(l *lexer) {
 
 func lexMembers(l *lexer) {
 	for {
-		lexWhitespace(l)
+		lexWhitespaceOrComment(l)
 		switch {
 		case hasPrefixByte(l.input[l.pos:], '}'):
 			return
@@ -102,30 +108,30 @@ func lexMembers(l *lexer) {
 }
 
 func lexMember(l *lexer) {
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	if !l.accept(`"`) {
-		l.errorf("object key must be string")
+		l.errorf("object key must be string pos:%d : %s", l.start, l.input[l.start:l.pos])
 		return
 	}
 	lexString(l)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	if !l.accept(`:`) {
 		l.errorf("object member has no : delimiter")
 		return
 	}
 	l.emit(itemColon)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 
 	lexValue(l)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 }
 
 func lexArray(l *lexer) {
 	l.pos += 1
 	l.emit(itemArrayOpen)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	lexElements(l)
-	lexWhitespace(l)
+	lexWhitespaceOrComment(l)
 	if l.accept("]") {
 		l.emit(itemArrayClose)
 	} else {
@@ -135,7 +141,7 @@ func lexArray(l *lexer) {
 
 func lexElements(l *lexer) {
 	for {
-		lexWhitespace(l)
+		lexWhitespaceOrComment(l)
 		switch {
 		case hasPrefixByte(l.input[l.pos:], ']'):
 			return
@@ -186,40 +192,43 @@ func lexString(l *lexer) {
 		case l.accept(`\`):
 			switch {
 			case l.accept(`"\/bfnrt`):
+				continue
 			case l.accept("u"):
 				for i := 0; i < 4; i++ {
 					if l.accept("0123456789abcdefABCDEF") {
 						l.errorf("invalid unicode escape sequence")
 					}
 				}
+				continue
 			default:
 				l.errorf("invalid escaped character")
 			}
 		}
 		if l.next() == eof {
-			l.errorf("unexected EOF scanning string")
+			l.errorf("unexpected EOF scanning string")
 		}
 	}
 }
 
-func lexComment(l *lexer) stateFn {
+func lexComment(l *lexer) {
 	if strings.HasPrefix(l.input[l.pos:], "//") {
-		return lexLineComment
+		lexLineComment(l)
+		return
 	}
 	if strings.HasPrefix(l.input[l.pos:], "/*") {
-		return lexRangeComment
+		lexRangeComment(l)
+		return
 	}
-	return lexStream
 }
 
-func lexLineComment(l *lexer) stateFn {
+func lexLineComment(l *lexer) {
 	// swallow //
 	l.pos += 2
 	for {
 		if hasPrefixByte(l.input[l.pos:], '\n') {
 			// don't include trailng \n
 			l.emit(itemComment)
-			return lexStream
+			return
 		}
 		if l.next() == eof {
 			break
@@ -230,10 +239,9 @@ func lexLineComment(l *lexer) stateFn {
 		l.emit(itemComment)
 	}
 	l.emit(itemEOF)
-	return nil // Stop the run loop.
 }
 
-func lexRangeComment(l *lexer) stateFn {
+func lexRangeComment(l *lexer) {
 	// swallow /*
 	l.pos += 2
 	for {
@@ -241,10 +249,11 @@ func lexRangeComment(l *lexer) stateFn {
 			// swallow */
 			l.pos += 2
 			l.emit(itemComment)
-			return lexStream
+			return
 		}
 		if l.next() == eof {
-			return l.errorf("unexpected EOF scanning comment")
+			l.errorf("unexpected EOF scanning comment")
+			return
 		}
 	}
 }
