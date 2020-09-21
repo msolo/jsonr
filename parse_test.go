@@ -2,42 +2,6 @@ package jsonr
 
 import "testing"
 
-// func toSlice(t *testing.T, items chan item) []item {
-// 	tl := make([]item, 0, 16)
-// 	for i := range items {
-// 		tl = append(tl, i)
-// 	}
-// 	t.Logf("tokens: %v", tl)
-// 	return tl
-// }
-
-// func lexToSlice(t *testing.T, s string) []item {
-// 	l := lex("test-lex", s)
-// 	items := make([]item, 0, 16)
-// 	for {
-// 		i := l.yield()
-// 		items = append(items, i)
-// 		if i.typ == itemEOF || i.typ == itemError {
-// 			// if i.typ == itemError {
-// 			// 	t.Log(i)
-// 			// }
-// 			return items
-// 		}
-// 	}
-// }
-
-// func checkTokenVals(t *testing.T, items []item, val ...string) {
-// 	// +1 for implicit EOF
-// 	if len(items) != len(val)+1 {
-// 		t.Fatalf("expected %d tokens: got %d", len(val)+1, len(items))
-// 	}
-// 	for i, v := range val {
-// 		if items[i].val != v {
-// 			t.Fatalf("expected %#v: got %#v at token %d", v, items[i].val, i)
-// 		}
-// 	}
-// }
-
 func TestParse(t *testing.T) {
 	checkParsedVal := func(input string, expectedVal interface{}) {
 		v, err := (&parser{}).parse(input)
@@ -99,6 +63,5 @@ func TestParse(t *testing.T) {
 	checkParsedObject(` { "x" : null , } `, map[string]interface{}{"x": nil})
 
 	//FIXME(msolo) check back-to-back docs
-	//FIXME(msolo) check whitespace
 
 }
