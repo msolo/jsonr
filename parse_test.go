@@ -57,7 +57,7 @@ func TestParse(t *testing.T) {
 	checkParsedObject(`{}`, map[string]interface{}{})
 	checkParsedObject(` { } `, map[string]interface{}{})
 	checkParsedObject("{\n}", map[string]interface{}{})
-	checkParsedObject(`{"x":null}`, map[string]interface{}{"x": nil})
+	checkParsedObject(`/*comment*/ {"x":null}`, map[string]interface{}{"x": nil})
 	checkParsedObject(`{"x":null,}`, map[string]interface{}{"x": nil})
 	checkParsedObject(` { "x" : null } `, map[string]interface{}{"x": nil})
 	checkParsedObject(` { "x" : null , } `, map[string]interface{}{"x": nil})

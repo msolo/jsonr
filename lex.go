@@ -47,15 +47,12 @@ func (f *fifo) Len() int {
 	return len(f.items)
 }
 
-type stateFn func(l *lexer) stateFn
-
 type lexer struct {
 	name  string // used only for error reports.
 	input string // the string being scanned.
 	start int    // start position of this item.
 	pos   int    // current position in the input.
 	width int    // width of last rune read from input.
-	state stateFn
 	items *fifo
 }
 
@@ -63,7 +60,6 @@ func lex(name, input string) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
-		state: lexStream,
 		items: &fifo{make([]item, 0, 16)},
 	}
 	return l
@@ -74,18 +70,15 @@ func lex(name, input string) *lexer {
 func (l *lexer) yield() (i item) {
 	defer func() {
 		if x := recover(); x != nil {
-			l.state = nil
 			i = x.(item)
 		}
 	}()
 	if l.items.Len() > 0 {
 		return l.items.Get()
 	}
-	for l.state != nil {
-		l.state = l.state(l)
-		if l.items.Len() > 0 {
-			return l.items.Get()
-		}
+	lexStream(l)
+	if l.items.Len() > 0 {
+		return l.items.Get()
 	}
 	return item{typ: itemEOF}
 }
@@ -114,17 +107,6 @@ func (l *lexer) next() (r rune) {
 	r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
 	l.pos += l.width
 	return r
-}
-
-// nextByte returns the next byte in the input.
-func (l *lexer) nextByte() (b byte, ok bool) {
-	if l.pos >= len(l.input) {
-		l.width = 0
-		return '\000', false
-	}
-	b, l.width = l.input[l.pos], 1
-	l.pos += l.width
-	return b, ok
 }
 
 // backup steps back one rune.

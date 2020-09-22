@@ -1,0 +1,15 @@
+/*
+Preamble with fanfare.
+*/
+
+{
+  // Line comment.
+  "x": "a string", // Trailing comment.
+  "y": 1.0,
+  "y-hex": hex("0x10"),
+  "z": null,
+  // "a": "value temporarily removed for debugging or idle curiosity",
+  "array": [],
+  "dict": {}  // Wish we could have a trailing comma here.
+}
+// Postamble.

@@ -28,13 +28,24 @@ func (p *parser) peek() item {
 	return i
 }
 
+// Parse a JSON string. Objects will be map[string]interface{}, arrays
+// []interface{} and numbers will be float64 for now.
 func (p *parser) parse(input string) (interface{}, error) {
 	p.lex = lex("parse-lexer", input)
-	i := p.next()
-	if i.typ == itemWhitespace {
-		i = p.next()
-	}
+	p.next()
+	p.skipWhitespaceOrComment()
 	return p.parseElement()
+}
+
+func (p *parser) skipWhitespaceOrComment() {
+	for {
+		switch p.item.typ {
+		case itemWhitespace, itemComment:
+			p.next()
+		default:
+			return
+		}
+	}
 }
 
 func (p *parser) parseElement() (interface{}, error) {
@@ -68,10 +79,10 @@ func (p *parser) parseElement() (interface{}, error) {
 func (p *parser) parseArray() (interface{}, error) {
 	x := make([]interface{}, 0, 16)
 	for {
-		i := p.next()
+		p.next()
 	onLast:
-		switch i.typ {
-		case itemWhitespace:
+		switch p.item.typ {
+		case itemWhitespace, itemComment:
 			continue
 		case itemArrayClose:
 			return x, nil
@@ -83,11 +94,9 @@ func (p *parser) parseArray() (interface{}, error) {
 				return nil, err
 			}
 			x = append(x, y)
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
-			}
-			if i.typ != itemComma {
+			p.next()
+			p.skipWhitespaceOrComment()
+			if p.item.typ != itemComma {
 				goto onLast
 			}
 		}
@@ -97,40 +106,46 @@ func (p *parser) parseArray() (interface{}, error) {
 func (p *parser) parseObject() (interface{}, error) {
 	x := make(map[string]interface{}, 16)
 	for {
-		i := p.next()
+		p.next()
 	onLast:
-		switch {
-		case i.typ == itemWhitespace:
+		switch p.item.typ {
+		case itemWhitespace:
 			continue
-		case i.typ == itemObjectClose:
+		case itemObjectClose:
 			return x, nil
-		case i.typ == itemString:
-			key := i.val[1 : len(i.val)-1]
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
-			}
-			if i.typ != itemColon {
+		case itemString:
+			key := p.item.val
+			key = key[1 : len(key)-1]
+			p.next()
+			p.skipWhitespaceOrComment()
+
+			if p.item.typ != itemColon {
 				return nil, fmt.Errorf("expected colon delimiter for key token")
 			}
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
-			}
+
+			p.next()
+			p.skipWhitespaceOrComment()
+
 			val, err := p.parseElement()
 			if err != nil {
 				return nil, err
 			}
 			x[key] = val
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
-			}
-			if i.typ != itemComma {
+
+			p.next()
+			p.skipWhitespaceOrComment()
+
+			if p.item.typ != itemComma {
 				goto onLast
 			}
 		default:
-			return nil, fmt.Errorf("invalid key token %v", i)
+			return nil, fmt.Errorf("invalid key token %v", p.item)
 		}
 	}
+}
+
+// Parse a JSON string. Objects will be map[string]interface{}, arrays
+// []interface{} and numbers will be float64 for now.
+func JsonParse(in string) (interface{}, error) {
+	return (&parser{}).parse(in)
 }

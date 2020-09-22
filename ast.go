@@ -112,115 +112,6 @@ func Inspect(node Node, f func(Node) bool) {
 	Walk(inspector(f), node)
 }
 
-func prettyFmt(data interface{}) string {
-	var p []byte
-	// Oh, the irony.
-	p, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err.Error()
-	}
-	return string(p)
-}
-
-type formatter struct {
-	indentLevel    int
-	skipNextIndent bool
-}
-
-func (f *formatter) fmtNode(n Node) string {
-	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
-	// to Node and we no longer get equivalence?
-	if n == nil {
-		return ""
-	}
-	b := &bytes.Buffer{}
-
-	indent := func() {
-		if f.skipNextIndent {
-			f.skipNextIndent = false
-			return
-		}
-		b.WriteString(strings.Repeat("  ", f.indentLevel))
-	}
-
-	switch tn := n.(type) {
-	case *File:
-		b.WriteString(f.fmtNode(tn.Doc))
-		b.WriteString(f.fmtNode(tn.Root))
-		b.WriteString(f.fmtNode(tn.Comment))
-		b.WriteString("\n")
-	case *Literal:
-		indent()
-		b.WriteString(tn.Value)
-	case *Array:
-		indent()
-		b.WriteString("[")
-		if len(tn.Elements) != 0 {
-			f.indentLevel++
-			b.WriteString("\n")
-			for _, e := range tn.Elements {
-				b.WriteString(f.fmtNode(e.Doc))
-				b.WriteString(f.fmtNode(e.Value))
-				b.WriteString(",")
-				if e.Comment != nil {
-					b.WriteString(" ")
-					f.skipNextIndent = true
-					b.WriteString(f.fmtNode(e.Comment))
-				}
-				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
-					b.WriteString("\n")
-				}
-			}
-			f.indentLevel--
-			indent()
-		}
-		b.WriteString("]")
-	case *Object:
-		indent()
-		b.WriteString("{")
-		if len(tn.Fields) != 0 {
-			f.indentLevel++
-			b.WriteString("\n")
-			for _, fl := range tn.Fields {
-				b.WriteString(f.fmtNode(fl.Doc))
-				b.WriteString(f.fmtNode(fl.Name))
-				b.WriteString(": ")
-				f.skipNextIndent = true
-				b.WriteString(f.fmtNode(fl.Value))
-				b.WriteString(",")
-				if fl.Comment != nil {
-					b.WriteString(" ")
-					f.skipNextIndent = true
-					b.WriteString(f.fmtNode(fl.Comment))
-				}
-				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
-					b.WriteString("\n")
-				}
-			}
-			f.indentLevel--
-			indent()
-		}
-		b.WriteString("}")
-	case *CommentGroup:
-		// FIXME(msolo) Surely this isn't necessary? See above.
-		if tn == nil {
-			return ""
-		}
-		for _, c := range tn.List {
-			indent()
-			b.WriteString(c.Text)
-			if strings.HasPrefix(c.Text, "//") {
-				b.WriteString("\n")
-			}
-		}
-	}
-	return b.String()
-}
-
-func jsonFmt(node Node) string {
-	return (&formatter{}).fmtNode(node)
-}
-
 type astParser struct {
 	lex       *lexer
 	item      item
@@ -234,7 +125,6 @@ func (p *astParser) next() item {
 		return p.item
 	}
 	p.item = p.lex.yield()
-	//fmt.Println("item", p.item)
 	return p.item
 }
 
@@ -244,7 +134,9 @@ func (p *astParser) peek() item {
 	return i
 }
 
-func (p *astParser) parse(input string) (Node, error) {
+// Parse the input string into an AST.  This is only useful when you
+// are planning to programmatically manipulate the tree.
+func (p *astParser) Parse(input string) (Node, error) {
 	p.lex = lex("ast-parse-lexer", input)
 	p.next()
 	doc := p.parseCommentGroup()
@@ -386,4 +278,114 @@ func (p *astParser) parseObject() (Node, error) {
 			return nil, fmt.Errorf("invalid key token %v", p.item)
 		}
 	}
+}
+
+func prettyFmt(data interface{}) string {
+	var p []byte
+	// Oh, the irony.
+	p, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(p)
+}
+
+type formatter struct {
+	indentLevel    int
+	skipNextIndent bool
+}
+
+func (f *formatter) fmtNode(n Node) string {
+	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
+	// to Node and we no longer get equivalence?
+	if n == nil {
+		return ""
+	}
+	b := &bytes.Buffer{}
+
+	indent := func() {
+		if f.skipNextIndent {
+			f.skipNextIndent = false
+			return
+		}
+		b.WriteString(strings.Repeat("  ", f.indentLevel))
+	}
+
+	switch tn := n.(type) {
+	case *File:
+		b.WriteString(f.fmtNode(tn.Doc))
+		b.WriteString(f.fmtNode(tn.Root))
+		b.WriteString(f.fmtNode(tn.Comment))
+		b.WriteString("\n")
+	case *Literal:
+		indent()
+		b.WriteString(tn.Value)
+	case *Array:
+		indent()
+		b.WriteString("[")
+		if len(tn.Elements) != 0 {
+			f.indentLevel++
+			b.WriteString("\n")
+			for _, e := range tn.Elements {
+				b.WriteString(f.fmtNode(e.Doc))
+				b.WriteString(f.fmtNode(e.Value))
+				b.WriteString(",")
+				if e.Comment != nil {
+					b.WriteString(" ")
+					f.skipNextIndent = true
+					b.WriteString(f.fmtNode(e.Comment))
+				}
+				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+					b.WriteString("\n")
+				}
+			}
+			f.indentLevel--
+			indent()
+		}
+		b.WriteString("]")
+	case *Object:
+		indent()
+		b.WriteString("{")
+		if len(tn.Fields) != 0 {
+			f.indentLevel++
+			b.WriteString("\n")
+			for _, fl := range tn.Fields {
+				b.WriteString(f.fmtNode(fl.Doc))
+				b.WriteString(f.fmtNode(fl.Name))
+				b.WriteString(": ")
+				f.skipNextIndent = true
+				b.WriteString(f.fmtNode(fl.Value))
+				b.WriteString(",")
+				if fl.Comment != nil {
+					b.WriteString(" ")
+					f.skipNextIndent = true
+					b.WriteString(f.fmtNode(fl.Comment))
+				}
+				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+					b.WriteString("\n")
+				}
+			}
+			f.indentLevel--
+			indent()
+		}
+		b.WriteString("}")
+	case *CommentGroup:
+		// FIXME(msolo) Surely this isn't necessary? See above.
+		if tn == nil {
+			return ""
+		}
+		for _, c := range tn.List {
+			indent()
+			b.WriteString(c.Text)
+			if strings.HasPrefix(c.Text, "//") {
+				b.WriteString("\n")
+			}
+		}
+	}
+	return b.String()
+}
+
+// Format an AST according to some heauristics. Thanks gofmt.
+func JsonFmt(node Node) string {
+	return (&formatter{}).fmtNode(node)
 }

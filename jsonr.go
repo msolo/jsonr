@@ -12,7 +12,7 @@ import (
 	"io"
 )
 
-// See json.Unmarsal.
+// See json.Unmarshal.
 func Unmarshal(data []byte, v interface{}) error {
 	return fmt.Errorf("FIXME")
 }

@@ -9,7 +9,7 @@ import (
 
 func TestAstParse(t *testing.T) {
 	checkParsedVal := func(input string, expectedVal interface{}) {
-		v, err := (&astParser{}).parse(input)
+		v, err := (&astParser{}).Parse(input)
 		if err != nil {
 			t.Fatalf("parse failed: %#v, err: %T %s \n", input, err, err)
 		}
@@ -32,7 +32,7 @@ func TestAstParse(t *testing.T) {
 		}
 
 		// Can we rewrite the same code we had as input?
-		output := jsonFmt(v)
+		output := JsonFmt(v)
 		if input != output {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(input),

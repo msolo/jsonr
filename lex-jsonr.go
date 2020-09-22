@@ -23,12 +23,12 @@ const (
 	itemNumber
 )
 
-func lexStream(l *lexer) stateFn {
+func lexStream(l *lexer) {
 	for {
 		lexElement(l)
 		if l.next() == eof {
 			l.emit(itemEOF) // Useful to make EOF a token.
-			return nil      // Stop the run loop.
+			return
 		}
 		l.backup()
 		continue
