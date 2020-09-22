@@ -164,9 +164,13 @@ func (l *lexer) acceptRun(valid string) (accepted bool) {
 // by passing back a nil pointer that will be the next
 // state, terminating l.run.
 func (l *lexer) errorf(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if msg == "" {
+		panic("empty error")
+	}
 	i := item{
 		itemError,
-		fmt.Sprintf(format, args...),
+		msg,
 		l.start,
 	}
 	l.items.Put(i)

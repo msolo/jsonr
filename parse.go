@@ -58,7 +58,7 @@ func (p *parser) parseElement() (interface{}, error) {
 	case itemObjectOpen:
 		return p.parseObject()
 	case itemError:
-		return nil, fmt.Errorf(p.item.val)
+		return nil, fmt.Errorf("parse err: %#v", p.item.val)
 	default:
 		return nil, fmt.Errorf("unknown type: %v", p.item.typ)
 	}

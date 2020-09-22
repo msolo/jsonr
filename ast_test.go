@@ -11,7 +11,7 @@ func TestAstParse(t *testing.T) {
 	checkParsedVal := func(input string, expectedVal interface{}) {
 		v, err := (&astParser{}).parse(input)
 		if err != nil {
-			t.Fatal(input, err)
+			t.Fatalf("parse failed: %#v, err: %T %s \n", input, err, err)
 		}
 		if !reflect.DeepEqual(v, expectedVal) {
 			prettyExpected := prettyFmt(expectedVal)
@@ -37,8 +37,8 @@ func TestAstParse(t *testing.T) {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(input),
 				B:        difflib.SplitLines(output),
-				FromFile: "expected",
-				ToFile:   "go",
+				FromFile: "expected source",
+				ToFile:   "generated source",
 				Context:  3,
 			}
 			diffText, err := difflib.GetUnifiedDiffString(diff)
@@ -46,7 +46,7 @@ func TestAstParse(t *testing.T) {
 				diffText = err.Error()
 			}
 
-			t.Fatalf("expected: %s\ngot: %s\ndiff:\n%s", input, output, diffText)
+			t.Fatalf("expected formatted source: %s\ngot: %s\ndiff:\n%s", input, output, diffText)
 		}
 	}
 
@@ -185,6 +185,62 @@ func TestAstParse(t *testing.T) {
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	checkParsedVal(`// Leading doc comment.
+{
+  // Doc1
+  // Doc2
+  "x": null, // Trailer.
+}/* postamble */
+`,
+		&File{
+			Doc: &CommentGroup{
+				[]*Comment{
+					&Comment{
+						Text: "// Leading doc comment.",
+					},
+				},
+			},
+			Comment: &CommentGroup{
+				[]*Comment{
+					&Comment{
+						Text: "/* postamble */",
+					},
+				},
+			},
+			Root: &Object{
+				[]*Field{
+					&Field{
+						Doc: &CommentGroup{
+							[]*Comment{
+								&Comment{
+									Text: "// Doc1",
+								},
+								&Comment{
+									Text: "// Doc2",
+								},
+							},
+						},
+						Comment: &CommentGroup{
+							[]*Comment{
+								&Comment{
+									Text: "// Trailer.",
+								},
+							},
+						},
+						Name: &Literal{
+							Type:  LiteralString,
+							Value: `"x"`,
+						},
+						Value: &Literal{
+							Type:  LiteralNull,
+							Value: "null",
 						},
 					},
 				},

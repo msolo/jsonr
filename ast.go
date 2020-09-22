@@ -128,6 +128,11 @@ type formatter struct {
 }
 
 func (f *formatter) fmtNode(n Node) string {
+	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
+	// to Node and we no longer get equivalence?
+	if n == nil {
+		return ""
+	}
 	b := &bytes.Buffer{}
 
 	indent := func() {
@@ -140,7 +145,9 @@ func (f *formatter) fmtNode(n Node) string {
 
 	switch tn := n.(type) {
 	case *File:
+		b.WriteString(f.fmtNode(tn.Doc))
 		b.WriteString(f.fmtNode(tn.Root))
+		b.WriteString(f.fmtNode(tn.Comment))
 		b.WriteString("\n")
 	case *Literal:
 		indent()
@@ -152,8 +159,17 @@ func (f *formatter) fmtNode(n Node) string {
 			f.indentLevel++
 			b.WriteString("\n")
 			for _, e := range tn.Elements {
+				b.WriteString(f.fmtNode(e.Doc))
 				b.WriteString(f.fmtNode(e.Value))
-				b.WriteString(",\n")
+				b.WriteString(",")
+				if e.Comment != nil {
+					b.WriteString(" ")
+					f.skipNextIndent = true
+					b.WriteString(f.fmtNode(e.Comment))
+				}
+				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+					b.WriteString("\n")
+				}
 			}
 			f.indentLevel--
 			indent()
@@ -166,16 +182,37 @@ func (f *formatter) fmtNode(n Node) string {
 			f.indentLevel++
 			b.WriteString("\n")
 			for _, fl := range tn.Fields {
+				b.WriteString(f.fmtNode(fl.Doc))
 				b.WriteString(f.fmtNode(fl.Name))
 				b.WriteString(": ")
 				f.skipNextIndent = true
 				b.WriteString(f.fmtNode(fl.Value))
-				b.WriteString(",\n")
+				b.WriteString(",")
+				if fl.Comment != nil {
+					b.WriteString(" ")
+					f.skipNextIndent = true
+					b.WriteString(f.fmtNode(fl.Comment))
+				}
+				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+					b.WriteString("\n")
+				}
 			}
 			f.indentLevel--
 			indent()
 		}
 		b.WriteString("}")
+	case *CommentGroup:
+		// FIXME(msolo) Surely this isn't necessary? See above.
+		if tn == nil {
+			return ""
+		}
+		for _, c := range tn.List {
+			indent()
+			b.WriteString(c.Text)
+			if strings.HasPrefix(c.Text, "//") {
+				b.WriteString("\n")
+			}
+		}
 	}
 	return b.String()
 }
@@ -209,15 +246,34 @@ func (p *astParser) peek() item {
 
 func (p *astParser) parse(input string) (Node, error) {
 	p.lex = lex("ast-parse-lexer", input)
-	i := p.next()
-	if i.typ == itemWhitespace {
-		i = p.next()
-	}
+	p.next()
+	doc := p.parseCommentGroup()
 	elt, err := p.parseElement()
 	if err != nil {
 		return nil, err
 	}
-	return &File{Root: elt}, nil
+	p.next()
+	comment := p.parseCommentGroup()
+	return &File{Doc: doc, Root: elt, Comment: comment}, nil
+}
+
+func (p *astParser) parseCommentGroup() *CommentGroup {
+	cl := make([]*Comment, 0, 4)
+	for {
+		if p.item.typ == itemWhitespace {
+			p.next()
+			continue
+		}
+		if p.item.typ == itemComment {
+			cl = append(cl, &Comment{p.item.val})
+			p.next()
+			continue
+		}
+		if len(cl) > 0 {
+			return &CommentGroup{cl}
+		}
+		return nil
+	}
 }
 
 func (p *astParser) parseElement() (Node, error) {
@@ -238,7 +294,7 @@ func (p *astParser) parseElement() (Node, error) {
 	case itemObjectOpen:
 		return p.parseObject()
 	case itemError:
-		return nil, fmt.Errorf(p.item.val)
+		return nil, fmt.Errorf("itemError: %#v", p.item.val)
 	default:
 		return nil, fmt.Errorf("unknown type: %v", p.item.typ)
 	}
@@ -248,9 +304,10 @@ func (p *astParser) parseElement() (Node, error) {
 func (p *astParser) parseArray() (Node, error) {
 	x := &Array{Elements: make([]*Element, 0, 16)}
 	for {
-		i := p.next()
+		p.next()
+		doc := p.parseCommentGroup()
 	onLast:
-		switch i.typ {
+		switch p.item.typ {
 		case itemWhitespace:
 			continue
 		case itemArrayClose:
@@ -263,14 +320,22 @@ func (p *astParser) parseArray() (Node, error) {
 				return nil, err
 			}
 
-			x.Elements = append(x.Elements, &Element{Value: y})
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
+			e := &Element{Doc: doc, Value: y}
+			x.Elements = append(x.Elements, e)
+			p.next()
+			if p.item.typ == itemWhitespace {
+				p.next()
 			}
-			if i.typ != itemComma {
+			//			fmt.Println("check post white", i)
+			if p.item.typ != itemComma {
 				goto onLast
 			}
+			// Handle trailing comment after the comma.
+			// FIXME(msolo) Having [ val /* comment */, ] seems visually confusing but legal.
+
+			p.next()
+			e.Comment = p.parseCommentGroup()
+			goto onLast
 		}
 	}
 }
@@ -278,40 +343,47 @@ func (p *astParser) parseArray() (Node, error) {
 func (p *astParser) parseObject() (Node, error) {
 	x := &Object{Fields: make([]*Field, 0, 16)}
 	for {
-		i := p.next()
+		p.next()
+		doc := p.parseCommentGroup()
 	onLast:
 		switch {
-		case i.typ == itemWhitespace:
+		case p.item.typ == itemWhitespace:
 			continue
-		case i.typ == itemObjectClose:
+		case p.item.typ == itemObjectClose:
 			return x, nil
-		case i.typ == itemString:
+		case p.item.typ == itemString:
 			key, err := p.parseElement()
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
+			p.next()
+			if p.item.typ == itemWhitespace {
+				p.next()
 			}
-			if i.typ != itemColon {
+			if p.item.typ != itemColon {
 				return nil, fmt.Errorf("expected colon delimiter for key token")
 			}
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
+			p.next()
+			if p.item.typ == itemWhitespace {
+				p.next()
 			}
 			val, err := p.parseElement()
 			if err != nil {
 				return nil, err
 			}
-			x.Fields = append(x.Fields, &Field{Name: key, Value: val})
-			i = p.next()
-			if i.typ == itemWhitespace {
-				i = p.next()
+			f := &Field{Doc: doc, Name: key, Value: val}
+			x.Fields = append(x.Fields, f)
+			p.next()
+			if p.item.typ == itemWhitespace {
+				p.next()
 			}
-			if i.typ != itemComma {
+			if p.item.typ != itemComma {
 				goto onLast
 			}
+			// Handle trailing comment after the comma.
+			// FIXME(msolo) Having val /* comment */, ] seems visually confusing but legal.
+			p.next()
+			f.Comment = p.parseCommentGroup()
+			goto onLast
 		default:
-			return nil, fmt.Errorf("invalid key token %v", i)
+			return nil, fmt.Errorf("invalid key token %v", p.item)
 		}
 	}
 }
