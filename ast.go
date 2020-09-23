@@ -114,11 +114,11 @@ func Inspect(node Node, f func(Node) bool) {
 
 type astParser struct {
 	lex       *lexer
-	item      item
-	peekItems []item
+	item      *item
+	peekItems []*item
 }
 
-func (p *astParser) next() item {
+func (p *astParser) next() *item {
 	if len(p.peekItems) > 0 {
 		p.item = p.peekItems[0]
 		p.peekItems = p.peekItems[1:]
@@ -128,7 +128,7 @@ func (p *astParser) next() item {
 	return p.item
 }
 
-func (p *astParser) peek() item {
+func (p *astParser) peek() *item {
 	i := p.lex.yield()
 	p.peekItems = append(p.peekItems, i)
 	return i
@@ -150,7 +150,7 @@ func (p *astParser) Parse(input string) (Node, error) {
 }
 
 func (p *astParser) parseCommentGroup() *CommentGroup {
-	cl := make([]*Comment, 0, 4)
+	var cl []*Comment
 	for {
 		if p.item.typ == itemWhitespace {
 			p.next()
@@ -218,7 +218,6 @@ func (p *astParser) parseArray() (Node, error) {
 			if p.item.typ == itemWhitespace {
 				p.next()
 			}
-			//			fmt.Println("check post white", i)
 			if p.item.typ != itemComma {
 				goto onLast
 			}
@@ -291,25 +290,29 @@ func prettyFmt(data interface{}) string {
 }
 
 type formatter struct {
-	indentLevel    int
-	skipNextIndent bool
+	indentLevel        int
+	skipNextIndent     bool
+	skipComments       bool
+	elideTrailingComma bool
+}
+
+func (f *formatter) indent() string {
+	if f.skipNextIndent {
+		f.skipNextIndent = false
+		return ""
+	}
+	return strings.Repeat("  ", f.indentLevel)
 }
 
 func (f *formatter) fmtNode(n Node) string {
 	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
 	// to Node and we no longer get equivalence?
-	if n == nil {
-		return ""
-	}
-	b := &bytes.Buffer{}
+	// This only applies comment so just deal with it there.
+	// if n == nil {
+	// 	return ""
+	// }
 
-	indent := func() {
-		if f.skipNextIndent {
-			f.skipNextIndent = false
-			return
-		}
-		b.WriteString(strings.Repeat("  ", f.indentLevel))
-	}
+	b := &bytes.Buffer{}
 
 	switch tn := n.(type) {
 	case *File:
@@ -318,64 +321,82 @@ func (f *formatter) fmtNode(n Node) string {
 		b.WriteString(f.fmtNode(tn.Comment))
 		b.WriteString("\n")
 	case *Literal:
-		indent()
+		b.WriteString(f.indent())
 		b.WriteString(tn.Value)
 	case *Array:
-		indent()
+		b.WriteString(f.indent())
 		b.WriteString("[")
 		if len(tn.Elements) != 0 {
 			f.indentLevel++
 			b.WriteString("\n")
-			for _, e := range tn.Elements {
+			for i, e := range tn.Elements {
 				b.WriteString(f.fmtNode(e.Doc))
 				b.WriteString(f.fmtNode(e.Value))
-				b.WriteString(",")
+				if f.elideTrailingComma {
+					if i != len(tn.Elements)-1 {
+						b.WriteString(",")
+					}
+				} else {
+					b.WriteString(",")
+				}
+
 				if e.Comment != nil {
 					b.WriteString(" ")
 					f.skipNextIndent = true
 					b.WriteString(f.fmtNode(e.Comment))
 				}
-				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+				if buf := b.Bytes(); buf[len(buf)-1] != '\n' {
 					b.WriteString("\n")
 				}
 			}
 			f.indentLevel--
-			indent()
+			b.WriteString(f.indent())
 		}
 		b.WriteString("]")
 	case *Object:
-		indent()
+		b.WriteString(f.indent())
 		b.WriteString("{")
 		if len(tn.Fields) != 0 {
 			f.indentLevel++
 			b.WriteString("\n")
-			for _, fl := range tn.Fields {
+			for i, fl := range tn.Fields {
 				b.WriteString(f.fmtNode(fl.Doc))
 				b.WriteString(f.fmtNode(fl.Name))
 				b.WriteString(": ")
 				f.skipNextIndent = true
 				b.WriteString(f.fmtNode(fl.Value))
-				b.WriteString(",")
+				if f.elideTrailingComma {
+					if i != len(tn.Fields)-1 {
+						b.WriteString(",")
+					}
+				} else {
+					b.WriteString(",")
+				}
 				if fl.Comment != nil {
 					b.WriteString(" ")
 					f.skipNextIndent = true
 					b.WriteString(f.fmtNode(fl.Comment))
 				}
-				if !bytes.HasSuffix(b.Bytes(), []byte("\n")) {
+				if buf := b.Bytes(); buf[len(buf)-1] != '\n' {
 					b.WriteString("\n")
 				}
 			}
 			f.indentLevel--
-			indent()
+			b.WriteString(f.indent())
 		}
 		b.WriteString("}")
 	case *CommentGroup:
+		if f.skipComments {
+			// Whether or not we process this, reset indent.
+			f.skipNextIndent = false
+			return ""
+		}
 		// FIXME(msolo) Surely this isn't necessary? See above.
 		if tn == nil {
 			return ""
 		}
 		for _, c := range tn.List {
-			indent()
+			b.WriteString(f.indent())
 			b.WriteString(c.Text)
 			if strings.HasPrefix(c.Text, "//") {
 				b.WriteString("\n")
@@ -385,7 +406,15 @@ func (f *formatter) fmtNode(n Node) string {
 	return b.String()
 }
 
-// Format an AST according to some heauristics. Thanks gofmt.
+// Format an AST according to JSON rules for compatibility.
 func JsonFmt(node Node) string {
+	return (&formatter{
+		skipComments:       true,
+		elideTrailingComma: true,
+	}).fmtNode(node)
+}
+
+// Format an AST according to some heauristics. Thanks gofmt.
+func JsonrFmt(node Node) string {
 	return (&formatter{}).fmtNode(node)
 }

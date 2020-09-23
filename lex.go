@@ -1,6 +1,7 @@
 package jsonr
 
 import (
+	"container/list"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -27,24 +28,42 @@ func (i item) String() string {
 	return fmt.Sprintf("%q", i.val)
 }
 
-// Simple non-concurrent fifo
+// // Simple non-concurrent fifo
+// type fifo struct {
+// 	items []*item
+// }
+
+// func (f *fifo) Get() *item {
+// 	i := f.items[0]
+// 	copy(f.items, f.items[1:])
+// 	f.items = f.items[:len(f.items)-1]
+// 	return i
+// }
+
+// func (f *fifo) Put(i *item) {
+// 	f.items = append(f.items, i)
+// }
+
+// func (f *fifo) Len() int {
+// 	return len(f.items)
+// }
+
 type fifo struct {
-	items []item
+	deque *list.List
 }
 
-func (f *fifo) Get() item {
-	i := f.items[0]
-	copy(f.items, f.items[1:])
-	f.items = f.items[:len(f.items)-1]
-	return i
+func (f *fifo) Get() *item {
+	e := f.deque.Front()
+	f.deque.Remove(e)
+	return e.Value.(*item)
 }
 
-func (f *fifo) Put(i item) {
-	f.items = append(f.items, i)
+func (f *fifo) Put(i *item) {
+	f.deque.PushBack(i)
 }
 
 func (f *fifo) Len() int {
-	return len(f.items)
+	return f.deque.Len()
 }
 
 type lexer struct {
@@ -60,17 +79,18 @@ func lex(name, input string) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
-		items: &fifo{make([]item, 0, 16)},
+		items: &fifo{list.New()},
+		//		items: &fifo{make([]*item, 0, 16)},
 	}
 	return l
 }
 
 // Run for a bit until an item has been produced.
 // Returns itemEOF when there is no more input to be consumed.
-func (l *lexer) yield() (i item) {
+func (l *lexer) yield() (i *item) {
 	defer func() {
 		if x := recover(); x != nil {
-			i = x.(item)
+			i = x.(*item)
 		}
 	}()
 	if l.items.Len() > 0 {
@@ -80,14 +100,14 @@ func (l *lexer) yield() (i item) {
 	if l.items.Len() > 0 {
 		return l.items.Get()
 	}
-	return item{typ: itemEOF}
+	return &item{typ: itemEOF}
 }
 
 // emit passes an item back to the client.
 func (l *lexer) emit(t itemType) {
 	v := l.input[l.start:l.pos]
 	//	fmt.Printf("emit %s %#v %d:%d\n", t, v, l.start, l.pos)
-	i := item{t, v, l.start}
+	i := &item{t, v, l.start}
 	l.items.Put(i)
 	l.start = l.pos
 }
@@ -150,7 +170,7 @@ func (l *lexer) errorf(format string, args ...interface{}) {
 	if msg == "" {
 		panic("empty error")
 	}
-	i := item{
+	i := &item{
 		itemError,
 		msg,
 		l.start,

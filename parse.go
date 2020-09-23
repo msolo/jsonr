@@ -7,11 +7,11 @@ import (
 
 type parser struct {
 	lex       *lexer
-	item      item
-	peekItems []item
+	item      *item
+	peekItems []*item
 }
 
-func (p *parser) next() item {
+func (p *parser) next() *item {
 	if len(p.peekItems) > 0 {
 		p.item = p.peekItems[0]
 		p.peekItems = p.peekItems[1:]
@@ -22,7 +22,7 @@ func (p *parser) next() item {
 	return p.item
 }
 
-func (p *parser) peek() item {
+func (p *parser) peek() *item {
 	i := p.lex.yield()
 	p.peekItems = append(p.peekItems, i)
 	return i
@@ -61,7 +61,7 @@ func (p *parser) parseElement() (interface{}, error) {
 	case itemNumber:
 		// FIXME(msolo) Doesn't have to be a float if I'm reading the spec
 		// correctly, but perhaps this a concession to informal
-		// compatibility?
+		// compatibility with the scourge that is Javascript?
 		x, err := strconv.ParseFloat(p.item.val, 64)
 		return x, err
 	case itemArrayOpen:

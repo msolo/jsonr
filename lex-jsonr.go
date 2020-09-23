@@ -54,23 +54,24 @@ func lexElement(l *lexer) {
 }
 
 func lexValue(l *lexer) {
+	prefix := l.input[l.pos:]
 	switch {
-	case hasPrefixByte(l.input[l.pos:], '{'):
+	case hasPrefixByte(prefix, '{'):
 		lexObject(l)
-	case hasPrefixByte(l.input[l.pos:], '['):
+	case hasPrefixByte(prefix, '['):
 		lexArray(l)
-	case hasPrefixByte(l.input[l.pos:], '"'):
+	case hasPrefixByte(prefix, '"'):
 		lexString(l)
-	case strings.HasPrefix(l.input[l.pos:], "true"):
+	case strings.HasPrefix(prefix, "true"):
 		l.pos += 4
 		l.emit(itemTrue)
-	case strings.HasPrefix(l.input[l.pos:], "false"):
+	case strings.HasPrefix(prefix, "false"):
 		l.pos += 5
 		l.emit(itemFalse)
-	case strings.HasPrefix(l.input[l.pos:], "null"):
+	case strings.HasPrefix(prefix, "null"):
 		l.pos += 4
 		l.emit(itemNull)
-	case strings.ContainsAny(l.input[l.pos:], "-0123456789"):
+	case strings.ContainsAny(prefix, "-0123456789"):
 		lexNumber(l)
 	default:
 		l.errorf("invalid element: %s", l.input[l.pos:l.pos+10])
@@ -211,11 +212,14 @@ func lexString(l *lexer) {
 }
 
 func lexComment(l *lexer) {
-	if strings.HasPrefix(l.input[l.pos:], "//") {
+	if !hasPrefixByte(l.input[l.pos:], '/') {
+		return
+	}
+	if hasPrefixByte(l.input[l.pos+1:], '/') {
 		lexLineComment(l)
 		return
 	}
-	if strings.HasPrefix(l.input[l.pos:], "/*") {
+	if hasPrefixByte(l.input[l.pos+1:], '*') {
 		lexRangeComment(l)
 		return
 	}

@@ -13,9 +13,9 @@ func toSlice(t *testing.T, items chan item) []item {
 	return tl
 }
 
-func lexToSlice(t *testing.T, s string) []item {
+func lexToSlice(t *testing.T, s string) []*item {
 	l := lex("test-lex", s)
-	items := make([]item, 0, 16)
+	items := make([]*item, 0, 16)
 	for {
 		i := l.yield()
 		items = append(items, i)
@@ -28,13 +28,13 @@ func lexToSlice(t *testing.T, s string) []item {
 	}
 }
 
-func checkItem(t *testing.T, i item, val string) {
+func checkItem(t *testing.T, i *item, val string) {
 	if i.val != val {
 		t.Fatalf("expected %#v: got %#v", val, i.val)
 	}
 }
 
-func checkTokenVals(t *testing.T, items []item, val ...string) {
+func checkTokenVals(t *testing.T, items []*item, val ...string) {
 	// +1 for implicit EOF
 	if len(items) != len(val)+1 {
 		t.Fatalf("expected %d tokens: got %d", len(val)+1, len(items))
@@ -181,7 +181,7 @@ func TestCommentedObject(t *testing.T) {
   "a": null, // c3
 } /* c4 */
 `)
-	tlm := make([]item, 0, len(tl))
+	tlm := make([]*item, 0, len(tl))
 	// Let's just check the "meaningful" tokens for now.
 	for _, i := range tl {
 		if i.typ != itemWhitespace {

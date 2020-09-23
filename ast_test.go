@@ -32,7 +32,7 @@ func TestAstParse(t *testing.T) {
 		}
 
 		// Can we rewrite the same code we had as input?
-		output := JsonFmt(v)
+		output := JsonrFmt(v)
 		if input != output {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(input),
