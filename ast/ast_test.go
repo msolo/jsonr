@@ -131,7 +131,7 @@ func TestAstParse(t *testing.T) {
 `,
 		&File{
 			Root: &Object{
-				[]*Field{},
+				Fields: []*Field{},
 			},
 		},
 	)
@@ -142,7 +142,7 @@ func TestAstParse(t *testing.T) {
 `,
 		&File{
 			Root: &Object{
-				[]*Field{
+				Fields: []*Field{
 					&Field{
 						Name: &Literal{
 							Type:  LiteralString,
@@ -166,14 +166,14 @@ func TestAstParse(t *testing.T) {
 `,
 		&File{
 			Root: &Object{
-				[]*Field{
+				Fields: []*Field{
 					&Field{
 						Name: &Literal{
 							Type:  LiteralString,
 							Value: `"x"`,
 						},
 						Value: &Object{
-							[]*Field{
+							Fields: []*Field{
 								&Field{
 									Name: &Literal{
 										Type:  LiteralString,
@@ -197,7 +197,8 @@ func TestAstParse(t *testing.T) {
   // Doc1
   // Doc2
   "x": null, // Trailer.
-}/* postamble */
+}
+/* postamble */
 `,
 		&File{
 			Doc: &CommentGroup{
@@ -215,7 +216,7 @@ func TestAstParse(t *testing.T) {
 				},
 			},
 			Root: &Object{
-				[]*Field{
+				Fields: []*Field{
 					&Field{
 						Doc: &CommentGroup{
 							[]*Comment{

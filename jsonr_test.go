@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+
+	"github.com/msolo/jsonr/ast"
 )
 
 type testDoc struct {
@@ -80,7 +82,7 @@ func BenchmarkJSON(b *testing.B) {
 func BenchmarkJSONRVanilla(b *testing.B) {
 	in := benchChunk
 	for i := 0; i < b.N; i++ {
-		_, err := JsonParse(in)
+		_, err := ast.JsonUnmarshal(in)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}

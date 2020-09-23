@@ -1,1 +1,2 @@
-cmd/jsonc-strip
+cmd/jsonr/jsonr
+cmd/jsonr-fmt/jsonr-fmt

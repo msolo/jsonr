@@ -19,7 +19,9 @@ type Literal struct {
 }
 
 type Object struct {
-	Fields []*Field
+	Doc     *CommentGroup
+	Fields  []*Field
+	Comment *CommentGroup
 }
 
 type Field struct {
@@ -200,13 +202,10 @@ func (p *astParser) parseElement() (Node, error) {
 
 func (p *astParser) parseArray() (Node, error) {
 	x := &Array{Elements: make([]*Element, 0, 16)}
+	p.next()
 	for {
-		p.next()
 		doc := p.parseCommentGroup()
-	onLast:
 		switch p.item.typ {
-		case itemWhitespace:
-			continue
 		case itemArrayClose:
 			return x, nil
 		case itemEOF:
@@ -219,36 +218,45 @@ func (p *astParser) parseArray() (Node, error) {
 
 			e := &Element{Doc: doc, Value: y}
 			x.Elements = append(x.Elements, e)
+
 			p.next()
 			if p.item.typ == itemWhitespace {
 				p.next()
 			}
-			if p.item.typ != itemComma {
-				goto onLast
-			}
-			// Handle trailing comment after the comma.
-			// FIXME(msolo) Having [ val /* comment */, ] seems visually confusing but legal.
 
-			p.next()
+			if p.item.typ == itemComma {
+				p.next()
+			}
+
+			// FIXME(msolo) This is probably a hack. It means a comment
+			// after a newline is properly interpreted as not belonging to
+			// the current element. We don't support arbitrary whitespace
+			// while formatting. That's another kettle of fish at this
+			// point.
+			if p.item.typ == itemWhitespace && strings.Contains(p.item.val, "\n") {
+				p.next()
+				continue
+			}
+
+			// Handle trailing comment regardless of trailing comma.
+			// FIXME(msolo) Having [ val /* comment */, ] seems visually confusing but legal.
 			e.Comment = p.parseCommentGroup()
-			goto onLast
+
 		}
 	}
 }
 
 func (p *astParser) parseObject() (Node, error) {
 	x := &Object{Fields: make([]*Field, 0, 16)}
+	p.next() // skip {
 	for {
-		p.next()
 		doc := p.parseCommentGroup()
-	onLast:
 		switch {
-		case p.item.typ == itemWhitespace:
-			continue
 		case p.item.typ == itemObjectClose:
 			return x, nil
 		case p.item.typ == itemString:
 			key, err := p.parseElement()
+
 			p.next()
 			if p.item.typ == itemWhitespace {
 				p.next()
@@ -260,24 +268,37 @@ func (p *astParser) parseObject() (Node, error) {
 			if p.item.typ == itemWhitespace {
 				p.next()
 			}
+
 			val, err := p.parseElement()
 			if err != nil {
 				return nil, err
 			}
+
 			f := &Field{Doc: doc, Name: key, Value: val}
 			x.Fields = append(x.Fields, f)
+
 			p.next()
 			if p.item.typ == itemWhitespace {
 				p.next()
 			}
-			if p.item.typ != itemComma {
-				goto onLast
+
+			if p.item.typ == itemComma {
+				p.next()
 			}
-			// Handle trailing comment after the comma.
-			// FIXME(msolo) Having val /* comment */, ] seems visually confusing but legal.
-			p.next()
+
+			// FIXME(msolo) This is probably a hack. It means a comment
+			// after a newline is properly interpreted as not belonging to
+			// the current element. We don't support arbitrary whitespace
+			// while formatting. That's another kettle of fish at this
+			// point.
+			if p.item.typ == itemWhitespace && strings.Contains(p.item.val, "\n") {
+				p.next()
+				continue
+			}
+			// Handle trailing comment regardless of trailing comma.
+			// FIXME(msolo) Having val /* comment */, ] seems visually
+			// confusing but legal.
 			f.Comment = p.parseCommentGroup()
-			goto onLast
 		default:
 			return nil, fmt.Errorf("invalid key token %v", p.item)
 		}
@@ -318,13 +339,20 @@ func (f *formatter) fmtNode(n Node) string {
 	// }
 
 	b := &bytes.Buffer{}
+	ensureNewline := func() {
+		if buf := b.Bytes(); len(buf) > 0 && buf[len(buf)-1] != '\n' {
+			b.WriteString("\n")
+		}
+	}
 
 	switch tn := n.(type) {
 	case *File:
 		b.WriteString(f.fmtNode(tn.Doc))
+		ensureNewline()
 		b.WriteString(f.fmtNode(tn.Root))
+		ensureNewline()
 		b.WriteString(f.fmtNode(tn.Comment))
-		b.WriteString("\n")
+		ensureNewline()
 	case *Literal:
 		b.WriteString(f.indent())
 		b.WriteString(tn.Value)
@@ -336,6 +364,7 @@ func (f *formatter) fmtNode(n Node) string {
 			b.WriteString("\n")
 			for i, e := range tn.Elements {
 				b.WriteString(f.fmtNode(e.Doc))
+				ensureNewline()
 				b.WriteString(f.fmtNode(e.Value))
 				if f.elideTrailingComma {
 					if i != len(tn.Elements)-1 {
@@ -350,9 +379,7 @@ func (f *formatter) fmtNode(n Node) string {
 					f.skipNextIndent = true
 					b.WriteString(f.fmtNode(e.Comment))
 				}
-				if buf := b.Bytes(); buf[len(buf)-1] != '\n' {
-					b.WriteString("\n")
-				}
+				ensureNewline()
 			}
 			f.indentLevel--
 			b.WriteString(f.indent())
@@ -366,6 +393,7 @@ func (f *formatter) fmtNode(n Node) string {
 			b.WriteString("\n")
 			for i, fl := range tn.Fields {
 				b.WriteString(f.fmtNode(fl.Doc))
+				ensureNewline()
 				b.WriteString(f.fmtNode(fl.Name))
 				b.WriteString(": ")
 				f.skipNextIndent = true
@@ -382,9 +410,7 @@ func (f *formatter) fmtNode(n Node) string {
 					f.skipNextIndent = true
 					b.WriteString(f.fmtNode(fl.Comment))
 				}
-				if buf := b.Bytes(); buf[len(buf)-1] != '\n' {
-					b.WriteString("\n")
-				}
+				ensureNewline()
 			}
 			f.indentLevel--
 			b.WriteString(f.indent())

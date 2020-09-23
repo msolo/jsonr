@@ -144,8 +144,9 @@ func (p *parser) parseObject() (interface{}, error) {
 	}
 }
 
-// Parse a JSON string. Objects will be map[string]interface{}, arrays
+// Unmarshal a JSON string. Objects will be map[string]interface{}, arrays
 // []interface{} and numbers will be float64 for now.
-func JsonParse(in string) (interface{}, error) {
+// jsonr.Unmarshal is slower, but substantially more useful.
+func JsonUnmarshal(in string) (interface{}, error) {
 	return (&parser{}).parse(in)
 }

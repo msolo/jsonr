@@ -1,3 +1,4 @@
+// json-fmt tool
 package main
 
 import (
@@ -38,5 +39,4 @@ func main() {
 		log.Fatal(err)
 	}
 
-	FIXME - lots of fmt bugs.
 }
