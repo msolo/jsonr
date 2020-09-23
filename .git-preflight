@@ -17,6 +17,12 @@
       "input_type": "none",
       "cmd": ["go", "mod", "tidy"],
       "includes": ["*.go"]
+    },
+    {
+      "name": "go-test",
+      "input_type": "none",
+      "cmd": ["go", "test", "./..."],
+      "includes": ["*.go"]
     }
   ]
 }
