@@ -1,15 +1,21 @@
 {
   "triggers": [
     {
-      "name": "gogen",
+      "name": "go-gen",
       "input_type": "args",
       "cmd": ["go", "generate"],
       "includes": ["*.go"]
     },
     {
-      "name": "gofmt",
+      "name": "go-fmt",
       "input_type": "args",
       "cmd": ["gofmt", "-w"],
+      "includes": ["*.go"]
+    },
+    {
+      "name": "go-mod-tidy",
+      "input_type": "none",
+      "cmd": ["go", "mod", "tidy"],
       "includes": ["*.go"]
     }
   ]
