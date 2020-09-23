@@ -1,4 +1,4 @@
-package jsonr
+package ast
 
 import (
 	"bytes"
@@ -110,6 +110,11 @@ func (f inspector) Visit(node Node) Visitor {
 
 func Inspect(node Node, f func(Node) bool) {
 	Walk(inspector(f), node)
+}
+
+// Parse a string in JSONR syntax into an AST and return the root node.
+func Parse(in string) (Node, error) {
+	return (&astParser{}).Parse(in)
 }
 
 type astParser struct {

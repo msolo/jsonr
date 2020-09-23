@@ -1,4 +1,4 @@
-package jsonr
+package ast
 
 import (
 	"container/list"
@@ -28,26 +28,7 @@ func (i item) String() string {
 	return fmt.Sprintf("%q", i.val)
 }
 
-// // Simple non-concurrent fifo
-// type fifo struct {
-// 	items []*item
-// }
-
-// func (f *fifo) Get() *item {
-// 	i := f.items[0]
-// 	copy(f.items, f.items[1:])
-// 	f.items = f.items[:len(f.items)-1]
-// 	return i
-// }
-
-// func (f *fifo) Put(i *item) {
-// 	f.items = append(f.items, i)
-// }
-
-// func (f *fifo) Len() int {
-// 	return len(f.items)
-// }
-
+// Simple non-concurrent fifo
 type fifo struct {
 	deque *list.List
 }

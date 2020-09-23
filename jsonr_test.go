@@ -77,6 +77,16 @@ func BenchmarkJSON(b *testing.B) {
 	}
 }
 
+func BenchmarkJSONRVanilla(b *testing.B) {
+	in := benchChunk
+	for i := 0; i < b.N; i++ {
+		_, err := JsonParse(in)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
 // FIXME(msolo) Benchmark confirms that stripping comments is 2.5x
 // more expensive than simple JSON parsing. I would accept 2x given
 // the naive approach of scanning twice. The original channel approach
@@ -87,6 +97,17 @@ func BenchmarkJSON(b *testing.B) {
 // know the costs.
 func BenchmarkJSONR(b *testing.B) {
 	in := []byte(benchChunk)
+	out := &struct{}{}
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(in, out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkJSONReal(b *testing.B) {
+	in := []byte(vaguelyRealistic)
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := Unmarshal(in, out)

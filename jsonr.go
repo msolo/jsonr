@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+
+	"github.com/msolo/jsonr/ast"
 )
 
 // See json.Unmarshal.
@@ -43,7 +45,7 @@ func (jr *jsonrReader) Read(b []byte) (n int, err error) {
 
 // FIXME(msolo) This strips a whole buffer at a time rather than
 // reading incrementally from the underlying reader. No one should
-// confuse JSONR for something high performance, but we needed waste
+// confuse JSONR for something high performance, but we need not waste
 // too many resources.
 //
 // See json.NewDecoder.
@@ -55,9 +57,9 @@ func NewDecoder(r io.Reader) *json.Decoder {
 // Return a JSON-compatible string from a JSONR source string.
 // This removes comments and normalizes trailing commas.
 func Convert2Json(in string) (string, error) {
-	tree, err := (&astParser{}).Parse(in)
+	tree, err := ast.Parse(in)
 	if err != nil {
 		return "", err
 	}
-	return JsonFmt(tree), nil
+	return ast.JsonFmt(tree), nil
 }

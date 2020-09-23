@@ -12,7 +12,7 @@ You can put a lenghty preamble or embed a poem if necessary.
   "quoted-line": "// this is also not a comment",
   // "a": "value temporarily removed for debugging or idle curiosity",
   "array": [],
-  "dict": {} // Wish we could have a trailing comma here,
-  // but that's a problem for a better parser.
+  "dict": {}, // We can have a trailing comma here.
+
 }
 // Postamble.

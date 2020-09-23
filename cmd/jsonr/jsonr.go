@@ -7,11 +7,13 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+
+	"github.com/msolo/jsonr"
 )
 
 var usage = `Simple tool to convert from JSONR to plain-old JSON.
 
-  jsonr-strip < something.jsonr > something.json
+  jsonr < something.jsonr > something.json
 `
 
 func main() {
