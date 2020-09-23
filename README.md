@@ -15,7 +15,6 @@ You can see that comments are safely valid in any sane place.
 
 You can put a lengthy preamble or embed a poem if necessary.
 */
-
 {
   // Line comment.
   "x": "a string", // Trailing comment.
@@ -27,7 +26,7 @@ You can put a lengthy preamble or embed a poem if necessary.
   "array": [],
   "dict": {},  // We can now have a trailing comma here.
 }
-// Postamble.
+// Post-amble.
 ```
 
 ## Sample Usage in Go
@@ -44,7 +43,7 @@ if err := dec.Decode(&v); err != nil {
 
 ### `jsonr`
 
-`jsonr` is unix-esque tool to filter out comments and trailing commas so standard tools like `jq` are still useful.
+`jsonr` is simple tool to filter out comments and trailing commas so standard tools like `jq` are still useful. The output mimics the input so that the order of fields in an object is preserved.
 
 ```
 go install github.com/msolo/jsonr/cmd/jsonr
@@ -57,10 +56,10 @@ jsonr < sample.jsonr | jq .x
 
 ### `jsonr-fmt`
 
-`jsonr-fmt` formats JSONR in a determinstic way.
+`jsonr-fmt` formats JSONR in a deterministic way.
 
 ```
 go install github.com/msolo/jsonr/cmd/jsonr-fmt
 
-jsonr-fm < sample.jsonr
+jsonr-fmt < sample.jsonr
 ```
