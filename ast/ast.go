@@ -33,7 +33,6 @@ type Field struct {
 
 type Element struct {
 	Doc     *CommentGroup
-	Type    ElementType
 	Value   Node
 	Comment *CommentGroup
 }
@@ -41,8 +40,6 @@ type Element struct {
 type Array struct {
 	Elements []*Element
 }
-
-type ElementType int
 
 type LiteralType int
 

@@ -28,7 +28,6 @@ func (i item) String() string {
 	return fmt.Sprintf("%q", i.val)
 }
 
-// Simple non-concurrent fifo
 type fifo struct {
 	deque *list.List
 }
@@ -61,7 +60,6 @@ func lex(name, input string) *lexer {
 		name:  name,
 		input: input,
 		items: &fifo{list.New()},
-		//		items: &fifo{make([]*item, 0, 16)},
 	}
 	return l
 }
@@ -149,7 +147,7 @@ func (l *lexer) acceptRun(valid string) (accepted bool) {
 func (l *lexer) errorf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if msg == "" {
-		panic("empty error")
+		panic("unhelpful programmer error: empty error string")
 	}
 	i := &item{
 		itemError,
