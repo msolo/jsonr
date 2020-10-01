@@ -73,7 +73,6 @@ func (p *parser) parseElement() (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unknown type: %v", p.item.typ)
 	}
-	return nil, nil
 }
 
 func (p *parser) parseArray() (interface{}, error) {

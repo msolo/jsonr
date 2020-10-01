@@ -194,7 +194,6 @@ func (p *astParser) parseElement() (Node, error) {
 	default:
 		return nil, fmt.Errorf("unknown type: %v", p.item.typ)
 	}
-	return nil, nil
 }
 
 func (p *astParser) parseArray() (Node, error) {

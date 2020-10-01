@@ -13,6 +13,13 @@
       "includes": ["*.go"]
     },
     {
+      "name": "go-vet",
+      "input_type": "args-dirs",
+      // Pass in each dir that contains a modified Go file - a package if you will.
+      "cmd": ["go", "vet"],
+      "includes": ["*.go"]
+    },
+    {
       "name": "go-mod-tidy",
       "input_type": "none",
       "cmd": ["go", "mod", "tidy"],
