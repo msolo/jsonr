@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/mattn/go-isatty"
 	"github.com/msolo/jsonr/ast"
 )
 
@@ -21,31 +22,32 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	in, err := ioutil.ReadAll(os.Stdin)
-	if err != nil {
-		log.Fatal(err)
+	paths := flag.Args()
+	if len(paths) == 0 {
+		if isatty.IsTerminal(os.Stdin.Fd()) {
+			os.Exit(1) // Nothing to do and probably an error.
+		} else {
+			paths = []string{"/dev/stdin"}
+		}
 	}
-	root, err := ast.Parse(string(in))
-	if err != nil {
-		log.Fatal(err)
+
+	for _, p := range paths {
+		f, err := os.Open(p)
+		if err != nil {
+			log.Fatal(err)
+		}
+		in, err := ioutil.ReadAll(f)
+		if err != nil {
+			log.Fatal(err)
+		}
+		root, err := ast.Parse(string(in))
+		if err != nil {
+			log.Fatal(err)
+		}
+		out := ast.JsonFmt(root)
+		_, err = os.Stdout.Write([]byte(out))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
-	out := ast.JsonFmt(root)
-	_, err = os.Stdout.Write([]byte(out))
-	if err != nil {
-		log.Fatal(err)
-	}
-	// var x interface{}
-	// err = jsonr.Unmarshal(in, &x)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// out, err := json.MarshalIndent(x, "", "  ")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// _, err = os.Stdout.Write(out)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// _, err = os.Stdout.WriteString("\n")
 }

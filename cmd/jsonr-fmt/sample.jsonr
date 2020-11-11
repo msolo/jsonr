@@ -13,6 +13,5 @@ You can put a lenghty preamble or embed a poem if necessary.
   // "a": "value temporarily removed for debugging or idle curiosity",
   "array": [],
   "dict": {}, // We can have a trailing comma here.
-
 }
 // Postamble.
