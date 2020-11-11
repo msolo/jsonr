@@ -26,6 +26,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	overwrite := flag.Bool("w", false, "write result to source file instead of stdout")
+	sortKeys := flag.Bool("s", false, "sort object keys")
 	flag.Parse()
 
 	paths := flag.Args()
@@ -53,7 +54,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		out := ast.JsonrFmt(root)
+		opts := []ast.Option{}
+		if *sortKeys {
+			opts = append(opts, ast.SortKeys)
+		}
+		out := ast.JsonrFmt(root, opts...)
 		outFile := os.Stdout
 		if *overwrite {
 			outFile, err = os.OpenFile(p, os.O_TRUNC|os.O_WRONLY, 0664)

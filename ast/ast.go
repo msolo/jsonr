@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -316,6 +317,7 @@ type formatter struct {
 	skipNextIndent     bool
 	skipComments       bool
 	elideTrailingComma bool
+	sortKeys           bool
 }
 
 func (f *formatter) indent() string {
@@ -385,6 +387,10 @@ func (f *formatter) fmtNode(n Node) string {
 		b.WriteString(f.indent())
 		b.WriteString("{")
 		if len(tn.Fields) != 0 {
+			if f.sortKeys {
+				sort.Sort(byKey(tn.Fields))
+			}
+
 			f.indentLevel++
 			b.WriteString("\n")
 			for i, fl := range tn.Fields {
@@ -433,15 +439,35 @@ func (f *formatter) fmtNode(n Node) string {
 	return b.String()
 }
 
-// Format an AST according to JSON rules for compatibility.
-func JsonFmt(node Node) string {
-	return (&formatter{
-		skipComments:       true,
-		elideTrailingComma: true,
-	}).fmtNode(node)
+type Option func(f *formatter)
+
+func SortKeys(f *formatter) {
+	f.sortKeys = true
 }
 
-// Format an AST according to some heauristics. Thanks gofmt.
-func JsonrFmt(node Node) string {
-	return (&formatter{}).fmtNode(node)
+// Format an AST according to JSON rules for compatibility.
+func JsonFmt(node Node, options ...Option) string {
+	fmt := &formatter{
+		skipComments:       true,
+		elideTrailingComma: true,
+	}
+	for _, opt := range options {
+		opt(fmt)
+	}
+	return fmt.fmtNode(node)
 }
+
+// Format an AST according to some heuristics. Thanks gofmt.
+func JsonrFmt(node Node, options ...Option) string {
+	fmt := &formatter{}
+	for _, o := range options {
+		o(fmt)
+	}
+	return fmt.fmtNode(node)
+}
+
+type byKey []*Field
+
+func (a byKey) Len() int           { return len(a) }
+func (a byKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byKey) Less(i, j int) bool { return a[i].Name.(*Literal).Value < a[j].Name.(*Literal).Value }
