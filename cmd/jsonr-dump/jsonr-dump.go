@@ -1,5 +1,5 @@
-// json-lines tool
-// Write out JSON in a line-oriented notation
+// jsonr-dump tool
+// Write out JSONR in a line-oriented key-value notation
 package main
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/msolo/jsonr/ast"
 )
 
-var usage = `Simple tool to dump a JSON obect as flat list of key paths.
+var usage = `Simple tool to dump a JSON obect as flat list of line-oriented key path and value pairs.
 
   jsonr-dump something.jsonr
 `
@@ -47,7 +47,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		out := ast.JsonLineFmt(root)
+		out := ast.JsonDumpKeyValueLines(root)
 		_, err = os.Stdout.Write([]byte(out))
 		if err != nil {
 			log.Fatal(err)
