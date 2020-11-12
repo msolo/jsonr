@@ -2,19 +2,36 @@ package ast
 
 import (
 	"bytes"
-	"fmt"
+	"strconv"
 	"strings"
 )
 
 type expFormatter struct {
-	keyPath []string
+	keyPath    []string
+	fmtKeyPath func(keyPath []string) string
 }
 
+// Format key path a /-delimited hierarchy.
 func fmtKeyPath(keyPath []string) string {
-	for i, x := range keyPath {
-		keyPath[i] = strings.ReplaceAll(x, "/", `\/`)
+	kpc := keyPath[:]
+	for i, x := range kpc {
+		kpc[i] = strings.ReplaceAll(x, "/", `\/`)
 	}
-	return "/" + strings.Join(keyPath, "/")
+	return "/" + strings.Join(kpc, "/")
+}
+
+// Format key path like a jq expression.
+func fmtKeyPathExpression(keyPath []string) string {
+	kpc := keyPath[:]
+	for i, x := range kpc {
+		if _, err := strconv.Atoi(x); err != nil {
+			kpc[i] = strconv.Quote(x)
+		}
+	}
+	if len(keyPath) == 0 {
+		return "."
+	}
+	return ".[" + strings.Join(kpc, "][") + "]"
 }
 
 func (f *expFormatter) fmtNode(n Node) string {
@@ -30,10 +47,10 @@ func (f *expFormatter) fmtNode(n Node) string {
 		b.WriteString(f.fmtNode(tn.Root))
 		ensureNewline()
 	case *Literal:
-		b.WriteString(fmtKeyPath(f.keyPath))
+		b.WriteString(f.fmtKeyPath(f.keyPath))
 		b.WriteString(" = ")
 		if tn.Value[0] == '"' && tn.Value[len(tn.Value)-1] == '"' {
-			b.WriteString(fmt.Sprintf("%q", tn.Value[1:len(tn.Value)-1]))
+			b.WriteString(strconv.Quote(tn.Value[1 : len(tn.Value)-1]))
 		} else {
 			b.WriteString(tn.Value)
 		}
@@ -42,7 +59,7 @@ func (f *expFormatter) fmtNode(n Node) string {
 		if len(tn.Elements) != 0 {
 			f.keyPath = append(f.keyPath, "")
 			for i, e := range tn.Elements {
-				f.keyPath[len(f.keyPath)-1] = fmt.Sprintf("%d", i)
+				f.keyPath[len(f.keyPath)-1] = strconv.Itoa(i)
 				b.WriteString(f.fmtNode(e.Value))
 				ensureNewline()
 			}
@@ -66,6 +83,6 @@ func (f *expFormatter) fmtNode(n Node) string {
 }
 
 // Format an AST using key notation.
-func JsonLineFmt(node Node) string {
-	return (&expFormatter{}).fmtNode(node)
+func JsonDumpKeyValueLines(node Node) string {
+	return (&expFormatter{fmtKeyPath: fmtKeyPath}).fmtNode(node)
 }
