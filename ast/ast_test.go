@@ -32,7 +32,7 @@ func TestAstParse(t *testing.T) {
 		}
 
 		// Can we rewrite the same code we had as input?
-		output := JsonrFmt(v)
+		output := FmtJsonr(v)
 		if input != output {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(input),
@@ -56,6 +56,16 @@ func TestAstParse(t *testing.T) {
 			Root: &Literal{
 				Type:  LiteralString,
 				Value: `"tiptop"`,
+			},
+		},
+	)
+
+	checkParsedVal(`"\"quoted\""
+`,
+		&File{
+			Root: &Literal{
+				Type:  LiteralString,
+				Value: `"\"quoted\""`,
 			},
 		},
 	)
@@ -116,7 +126,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Array{
 				[]*Element{
-					&Element{
+					{
 						Value: &Literal{
 							Type:  LiteralNull,
 							Value: "null",
@@ -143,10 +153,32 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Object{
 				Fields: []*Field{
-					&Field{
+					{
 						Name: &Literal{
 							Type:  LiteralString,
 							Value: `"x"`,
+						},
+						Value: &Literal{
+							Type:  LiteralNull,
+							Value: "null",
+						},
+					},
+				},
+			},
+		},
+	)
+
+	checkParsedVal(`{
+  "quoted\"x": null,
+}
+`,
+		&File{
+			Root: &Object{
+				Fields: []*Field{
+					{
+						Name: &Literal{
+							Type:  LiteralString,
+							Value: `"quoted\"x"`,
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
@@ -167,14 +199,14 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Object{
 				Fields: []*Field{
-					&Field{
+					{
 						Name: &Literal{
 							Type:  LiteralString,
 							Value: `"x"`,
 						},
 						Value: &Object{
 							Fields: []*Field{
-								&Field{
+								{
 									Name: &Literal{
 										Type:  LiteralString,
 										Value: `"nested"`,
@@ -203,34 +235,34 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Doc: &CommentGroup{
 				[]*Comment{
-					&Comment{
+					{
 						Text: "// Leading doc comment.",
 					},
 				},
 			},
 			Comment: &CommentGroup{
 				[]*Comment{
-					&Comment{
+					{
 						Text: "/* postamble */",
 					},
 				},
 			},
 			Root: &Object{
 				Fields: []*Field{
-					&Field{
+					{
 						Doc: &CommentGroup{
 							[]*Comment{
-								&Comment{
+								{
 									Text: "// Doc1",
 								},
-								&Comment{
+								{
 									Text: "// Doc2",
 								},
 							},
 						},
 						Comment: &CommentGroup{
 							[]*Comment{
-								&Comment{
+								{
 									Text: "// Trailer.",
 								},
 							},
@@ -259,4 +291,40 @@ func TestAstParse(t *testing.T) {
 	// checkParsedObject(`{"x":null,}`, map[string]interface{}{"x": nil})
 	// checkParsedObject(` { "x" : null } `, map[string]interface{}{"x": nil})
 	// checkParsedObject(` { "x" : null , } `, map[string]interface{}{"x": nil})
+}
+
+func TestDumpPathEscaping(t *testing.T) {
+	s := `{
+		"a/b": [0,1]
+	}`
+
+	root, err := Parse(s)
+	if err != nil {
+		t.Error(err)
+	}
+	out := FmtKeyValue(root)
+	expected := "/a\\/b/0 = 0\n/a\\/b/1 = 1\n"
+	if out != expected {
+		t.Errorf("expected %s; got %s", expected, out)
+	}
+}
+
+func TestDumpExprEscaping(t *testing.T) {
+	s := `{
+		"a\"b": [0,1]
+	}`
+
+	root, err := Parse(s)
+	if err != nil {
+		t.Error(err)
+	}
+
+	out := FmtKeyValue(root, OptionKeyFormatter(FmtKeyAsExpression))
+	expected := `.["a\"b"][0] = 0
+.["a\"b"][1] = 1
+`
+	t.Log(out)
+	if out != expected {
+		t.Errorf("expected %s; got %s", expected, out)
+	}
 }

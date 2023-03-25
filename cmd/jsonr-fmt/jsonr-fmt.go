@@ -56,9 +56,9 @@ func main() {
 		}
 		opts := []ast.Option{}
 		if *sortKeys {
-			opts = append(opts, ast.SortKeys)
+			opts = append(opts, ast.OptionSortKeys)
 		}
-		out := ast.JsonrFmt(root, opts...)
+		out := ast.FmtJsonr(root, opts...)
 		outFile := os.Stdout
 		if *overwrite {
 			outFile, err = os.OpenFile(p, os.O_TRUNC|os.O_WRONLY, 0664)

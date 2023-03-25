@@ -44,7 +44,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		out := ast.JsonFmt(root)
+		out := ast.FmtJson(root)
 		_, err = os.Stdout.Write([]byte(out))
 		if err != nil {
 			log.Fatal(err)

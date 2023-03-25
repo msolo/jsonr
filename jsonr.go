@@ -61,5 +61,5 @@ func Convert2Json(in string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ast.JsonFmt(tree), nil
+	return ast.FmtJson(tree), nil
 }

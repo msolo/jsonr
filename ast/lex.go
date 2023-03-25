@@ -21,7 +21,7 @@ func (i item) String() string {
 	case i.typ == itemEOF:
 		return "EOF"
 	case i.typ == itemError:
-		return fmt.Sprintf("ERR: start:%d %s", i.start, i.val)
+		return fmt.Sprintf("ERR: position:%d %s", i.start, i.val)
 	case len(i.val) > 10:
 		return fmt.Sprintf("%.10q...", i.val)
 	}
@@ -125,7 +125,7 @@ func (l *lexer) peek() rune {
 // accept consumes the next rune
 // if it's from the valid set.
 func (l *lexer) accept(valid string) bool {
-	if strings.IndexRune(valid, l.next()) >= 0 {
+	if strings.ContainsRune(valid, l.next()) {
 		return true
 	}
 	l.backup()
@@ -134,7 +134,7 @@ func (l *lexer) accept(valid string) bool {
 
 // acceptRun consumes a run of runes from the valid set.
 func (l *lexer) acceptRun(valid string) (accepted bool) {
-	for strings.IndexRune(valid, l.next()) >= 0 {
+	for strings.ContainsRune(valid, l.next()) {
 		accepted = true
 	}
 	l.backup()
@@ -152,7 +152,7 @@ func (l *lexer) errorf(format string, args ...interface{}) {
 	i := &item{
 		itemError,
 		msg,
-		l.start,
+		l.pos, // The "start" of the error is typically the current position, not where the token itself started.
 	}
 	l.items.Put(i)
 	panic(i)

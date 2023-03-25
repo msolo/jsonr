@@ -1,7 +1,7 @@
 /*
 You can see that comments are safely valid in any sane place.
 
-You can put a lenghty preamble or embed a poem if necessary.
+You can put a lengthy preamble or embed a poem if necessary.
 */
 {
   // Line comment.
@@ -10,8 +10,7 @@ You can put a lenghty preamble or embed a poem if necessary.
   "z": null,
   "quoted-range": "/* this is not a comment *",
   "quoted-line": "// this is also not a comment",
-  "value with newlines": "this is also not a comment
-but contains a newline a tab (	) and should still remain on one line.",
+  "value with escapes": "this has a newline (\n) a tab (\t) and should still remain on one quoted \" line.",
   // "a": "value temporarily removed for debugging or idle curiosity",
   "array": [1],
   "dict": {"key": null}, // We can have a trailing comma here.

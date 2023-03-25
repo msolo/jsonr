@@ -2,36 +2,53 @@ package ast
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 type expFormatter struct {
-	keyPath    []string
-	fmtKeyPath func(keyPath []string) string
+	keyPath    []KeyStep
+	fmtKeyPath func(keyPath []KeyStep) string
+}
+
+type KeyStep interface {
+	String() string
+}
+
+type ByName string
+
+func (k ByName) String() string {
+	return string(k)
+}
+
+type ByIdx int
+
+func (i ByIdx) String() string {
+	return strconv.Itoa(int(i))
 }
 
 // Format key path a /-delimited hierarchy.
-func fmtKeyPath(keyPath []string) string {
-	kpc := keyPath[:]
-	for i, x := range kpc {
-		kpc[i] = strings.ReplaceAll(x, "/", `\/`)
+func FmtKeyAsPath(keyPath []KeyStep) string {
+	kpc := make([]string, 0, len(keyPath))
+	for _, x := range keyPath {
+		kpc = append(kpc, strings.ReplaceAll(x.String(), "/", `\/`))
 	}
 	return "/" + strings.Join(kpc, "/")
 }
 
-// Format key path like a jq expression.
-func fmtKeyPathExpression(keyPath []string) string {
-	kpc := keyPath[:]
-	for i, x := range kpc {
-		if _, err := strconv.Atoi(x); err != nil {
-			kpc[i] = strconv.Quote(x)
+// Format key path like a normalized jq/Python-esque expression
+func FmtKeyAsExpression(keyPath []KeyStep) string {
+	kpc := make([]string, 0, len(keyPath))
+	for _, kp := range keyPath {
+		switch x := kp.(type) {
+		case ByIdx:
+			kpc = append(kpc, "["+x.String()+"]")
+		case ByName:
+			kpc = append(kpc, "["+strconv.Quote(x.String())+"]")
 		}
 	}
-	if len(keyPath) == 0 {
-		return "."
-	}
-	return ".[" + strings.Join(kpc, "][") + "]"
+	return "." + strings.Join(kpc, "")
 }
 
 func (f *expFormatter) fmtNode(n Node) string {
@@ -49,17 +66,13 @@ func (f *expFormatter) fmtNode(n Node) string {
 	case *Literal:
 		b.WriteString(f.fmtKeyPath(f.keyPath))
 		b.WriteString(" = ")
-		if tn.Value[0] == '"' && tn.Value[len(tn.Value)-1] == '"' {
-			b.WriteString(strconv.Quote(tn.Value[1 : len(tn.Value)-1]))
-		} else {
-			b.WriteString(tn.Value)
-		}
+		b.WriteString(tn.Value)
 		ensureNewline()
 	case *Array:
 		if len(tn.Elements) != 0 {
-			f.keyPath = append(f.keyPath, "")
+			f.keyPath = append(f.keyPath, nil)
 			for i, e := range tn.Elements {
-				f.keyPath[len(f.keyPath)-1] = strconv.Itoa(i)
+				f.keyPath[len(f.keyPath)-1] = ByIdx(i)
 				b.WriteString(f.fmtNode(e.Value))
 				ensureNewline()
 			}
@@ -67,10 +80,15 @@ func (f *expFormatter) fmtNode(n Node) string {
 		}
 	case *Object:
 		if len(tn.Fields) != 0 {
-			f.keyPath = append(f.keyPath, "")
+			f.keyPath = append(f.keyPath, nil)
 			for _, fl := range tn.Fields {
 				v := fl.Name.(*Literal).Value
-				f.keyPath[len(f.keyPath)-1] = v[1 : len(v)-1]
+				s, err := strconv.Unquote(v)
+				if err != nil {
+					panic(fmt.Errorf("unquote err: %s %s", err, v))
+				}
+
+				f.keyPath[len(f.keyPath)-1] = ByName(s)
 				b.WriteString(f.fmtNode(fl.Value))
 				ensureNewline()
 			}
@@ -82,7 +100,23 @@ func (f *expFormatter) fmtNode(n Node) string {
 	return b.String()
 }
 
-// Format an AST using key notation.
-func JsonDumpKeyValueLines(node Node) string {
-	return (&expFormatter{fmtKeyPath: fmtKeyPath}).fmtNode(node)
+type KVOption func(f *expFormatter)
+
+func (KVOption) OptionFmtKeyAsExpression(f *expFormatter) {
+	f.fmtKeyPath = FmtKeyAsExpression
+}
+
+func OptionKeyFormatter(kf func(keyPath []KeyStep) string) KVOption {
+	return func(f *expFormatter) {
+		f.fmtKeyPath = FmtKeyAsExpression
+	}
+}
+
+// Format an AST using key = value notation.
+func FmtKeyValue(node Node, options ...KVOption) string {
+	f := &expFormatter{fmtKeyPath: FmtKeyAsPath}
+	for _, o := range options {
+		o(f)
+	}
+	return f.fmtNode(node)
 }

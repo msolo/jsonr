@@ -176,6 +176,11 @@ func (p *astParser) parseCommentGroup() *CommentGroup {
 func (p *astParser) parseElement() (Node, error) {
 	switch p.item.typ {
 	case itemString:
+		for i, r := range p.item.val {
+			if r < '\u001f' {
+				return nil, fmt.Errorf("invalid literal character %q at position %d: control characters from \\u0000 - \\u001f must be escaped", r, p.item.start+i)
+			}
+		}
 		return &Literal{Type: LiteralString,
 			Value: p.item.val}, nil
 	case itemTrue:
@@ -191,7 +196,7 @@ func (p *astParser) parseElement() (Node, error) {
 	case itemObjectOpen:
 		return p.parseObject()
 	case itemError:
-		return nil, fmt.Errorf("itemError: %#v", p.item.val)
+		return nil, fmt.Errorf("%v", p.item)
 	default:
 		return nil, fmt.Errorf("unknown type: %v", p.item.typ)
 	}
@@ -253,6 +258,9 @@ func (p *astParser) parseObject() (Node, error) {
 			return x, nil
 		case p.item.typ == itemString:
 			key, err := p.parseElement()
+			if err != nil {
+				return nil, err
+			}
 
 			p.next()
 			if p.item.typ == itemWhitespace {
@@ -441,12 +449,12 @@ func (f *formatter) fmtNode(n Node) string {
 
 type Option func(f *formatter)
 
-func SortKeys(f *formatter) {
+func OptionSortKeys(f *formatter) {
 	f.sortKeys = true
 }
 
-// Format an AST according to JSON rules for compatibility.
-func JsonFmt(node Node, options ...Option) string {
+// Format an AST according to JSON rules for backward compatibility.
+func FmtJson(node Node, options ...Option) string {
 	fmt := &formatter{
 		skipComments:       true,
 		elideTrailingComma: true,
@@ -457,8 +465,8 @@ func JsonFmt(node Node, options ...Option) string {
 	return fmt.fmtNode(node)
 }
 
-// Format an AST according to some heuristics. Thanks gofmt.
-func JsonrFmt(node Node, options ...Option) string {
+// Format an AST according to some aesthetic heuristics. Thanks gofmt.
+func FmtJsonr(node Node, options ...Option) string {
 	fmt := &formatter{}
 	for _, o := range options {
 		o(fmt)

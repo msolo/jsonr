@@ -23,6 +23,7 @@ func main() {
 		fmt.Fprint(flag.CommandLine.Output(), usage)
 		flag.PrintDefaults()
 	}
+	useExpr := flag.Bool("use-expr", false, "Use expression notation.")
 	flag.Parse()
 	paths := flag.Args()
 	if len(paths) == 0 {
@@ -47,7 +48,12 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		out := ast.JsonDumpKeyValueLines(root)
+		var out string
+		if *useExpr {
+			out = ast.FmtKeyValue(root, ast.OptionKeyFormatter(ast.FmtKeyAsExpression))
+		} else {
+			out = ast.FmtKeyValue(root)
+		}
 		_, err = os.Stdout.Write([]byte(out))
 		if err != nil {
 			log.Fatal(err)
