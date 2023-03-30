@@ -50,7 +50,7 @@ func main() {
 
 		_ = f.Close()
 
-		root, err := ast.Parse(string(in))
+		root, err := ast.Parse(in)
 		if err != nil {
 			log.Fatal(err)
 		}

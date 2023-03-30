@@ -5,7 +5,7 @@ import (
 )
 
 func lexToSlice(t *testing.T, s string) []*item {
-	l := lex("test-lex", s)
+	l := lex("test-lex", []byte(s))
 	items := make([]*item, 0, 16)
 	for {
 		i := l.yield()
@@ -93,6 +93,7 @@ func TestElementNumber(t *testing.T) {
 	tl = lexToSlice(t, `1.1e-1`)
 	checkItem(t, tl[0], `1.1e-1`)
 }
+
 func TestElementInvalidNumber(t *testing.T) {
 	tl := lexToSlice(t, `+1.1e01`)
 	checkItem(t, tl[len(tl)-1], `malformed integer number`)

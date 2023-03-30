@@ -13,7 +13,7 @@ type testDoc struct {
 }
 
 var (
-	vaguelyRealistic = `/*
+	vaguelyRealistic = []byte(`/*
 Preamble with fanfare.
 */
 
@@ -27,16 +27,16 @@ Preamble with fanfare.
   "dict": {},  // Now we can have a trailing comma here!
 }
 // Postamble.
-`
+`)
 
-	benchChunk = `{
+	benchChunk = []byte(`{
   "x": "a string",
   "y": 1.0,
   "z": null,
   "array": [],
   "dict": {}
 }
-`
+`)
 )
 
 func TestJson(t *testing.T) {
@@ -61,7 +61,7 @@ func TestJson(t *testing.T) {
 	}
 
 	td2 := &testDoc2{}
-	dec := NewDecoder(bytes.NewBufferString(vaguelyRealistic))
+	dec := NewDecoder(bytes.NewBuffer(vaguelyRealistic))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(td2); err != nil {
 		t.Error(err)
@@ -69,7 +69,7 @@ func TestJson(t *testing.T) {
 }
 
 func BenchmarkJSON(b *testing.B) {
-	in := []byte(benchChunk)
+	in := benchChunk
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := json.Unmarshal(in, out)
@@ -98,7 +98,7 @@ func BenchmarkJSONRVanilla(b *testing.B) {
 // "fast-enough" for almost any application I had planned, but best to
 // know the costs.
 func BenchmarkJSONR(b *testing.B) {
-	in := []byte(benchChunk)
+	in := benchChunk
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := Unmarshal(in, out)
@@ -109,7 +109,7 @@ func BenchmarkJSONR(b *testing.B) {
 }
 
 func BenchmarkJSONReal(b *testing.B) {
-	in := []byte(vaguelyRealistic)
+	in := vaguelyRealistic
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := Unmarshal(in, out)

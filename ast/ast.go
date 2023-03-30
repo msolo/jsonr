@@ -16,7 +16,7 @@ type File struct {
 
 type Literal struct {
 	Type  LiteralType
-	Value string
+	Value []byte
 }
 
 type Object struct {
@@ -57,7 +57,7 @@ type CommentGroup struct {
 }
 
 type Comment struct {
-	Text string
+	Text []byte
 }
 
 type Node interface{}
@@ -113,8 +113,12 @@ func Inspect(node Node, f func(Node) bool) {
 }
 
 // Parse a string in JSONR syntax into an AST and return the root node.
-func Parse(in string) (Node, error) {
+func Parse(in []byte) (Node, error) {
 	return (&astParser{}).Parse(in)
+}
+
+func ParseString(in string) (Node, error) {
+	return (&astParser{}).Parse([]byte(in))
 }
 
 type astParser struct {
@@ -141,7 +145,7 @@ func (p *astParser) peek() *item {
 
 // Parse the input string into an AST.  This is only useful when you
 // are planning to programmatically manipulate the tree.
-func (p *astParser) Parse(input string) (Node, error) {
+func (p *astParser) Parse(input []byte) (Node, error) {
 	p.lex = lex("ast-parse-lexer", input)
 	p.next()
 	doc := p.parseCommentGroup()
@@ -328,15 +332,26 @@ type formatter struct {
 	sortKeys           bool
 }
 
-func (f *formatter) indent() string {
-	if f.skipNextIndent {
-		f.skipNextIndent = false
-		return ""
-	}
-	return strings.Repeat("  ", f.indentLevel)
+// Too clever? Doens't seem to help...
+var indent = [][]byte{
+	[]byte(""),
+	[]byte("  "),
+	[]byte("    "),
+	[]byte("      "),
+	[]byte("        "),
+	[]byte("          "),
 }
 
-func (f *formatter) fmtNode(n Node) string {
+func (f *formatter) indent() []byte {
+	if f.skipNextIndent {
+		f.skipNextIndent = false
+		return nil
+	}
+	return bytes.Repeat([]byte("  "), f.indentLevel)
+	//return indent[f.indentLevel]
+}
+
+func (f *formatter) fmtNode(n Node) []byte {
 	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
 	// to Node and we no longer get equivalence?
 	// This only applies comment so just deal with it there.
@@ -344,107 +359,108 @@ func (f *formatter) fmtNode(n Node) string {
 	// 	return ""
 	// }
 
-	b := &bytes.Buffer{}
+	//b := &bytes.Buffer{}
+	b := bytes.NewBuffer(make([]byte, 0, 4096))
 	ensureNewline := func() {
 		if buf := b.Bytes(); len(buf) > 0 && buf[len(buf)-1] != '\n' {
-			b.WriteString("\n")
+			b.WriteByte('\n')
 		}
 	}
 
 	switch tn := n.(type) {
 	case *File:
-		b.WriteString(f.fmtNode(tn.Doc))
+		b.Write(f.fmtNode(tn.Doc))
 		ensureNewline()
-		b.WriteString(f.fmtNode(tn.Root))
+		b.Write(f.fmtNode(tn.Root))
 		ensureNewline()
-		b.WriteString(f.fmtNode(tn.Comment))
+		b.Write(f.fmtNode(tn.Comment))
 		ensureNewline()
 	case *Literal:
-		b.WriteString(f.indent())
+		b.Write(f.indent())
 		b.WriteString(tn.Value)
 	case *Array:
-		b.WriteString(f.indent())
-		b.WriteString("[")
+		b.Write(f.indent())
+		b.WriteByte('[')
 		if len(tn.Elements) != 0 {
 			f.indentLevel++
-			b.WriteString("\n")
+			b.WriteByte('\n')
 			for i, e := range tn.Elements {
-				b.WriteString(f.fmtNode(e.Doc))
+				b.Write(f.fmtNode(e.Doc))
 				ensureNewline()
-				b.WriteString(f.fmtNode(e.Value))
+				b.Write(f.fmtNode(e.Value))
 				if f.elideTrailingComma {
 					if i != len(tn.Elements)-1 {
-						b.WriteString(",")
+						b.WriteByte(',')
 					}
 				} else {
-					b.WriteString(",")
+					b.WriteByte(',')
 				}
 
 				if e.Comment != nil {
-					b.WriteString(" ")
+					b.WriteByte(' ')
 					f.skipNextIndent = true
-					b.WriteString(f.fmtNode(e.Comment))
+					b.Write(f.fmtNode(e.Comment))
 				}
 				ensureNewline()
 			}
 			f.indentLevel--
-			b.WriteString(f.indent())
+			b.Write(f.indent())
 		}
-		b.WriteString("]")
+		b.WriteByte(']')
 	case *Object:
-		b.WriteString(f.indent())
-		b.WriteString("{")
+		b.Write(f.indent())
+		b.WriteByte('{')
 		if len(tn.Fields) != 0 {
 			if f.sortKeys {
 				sort.Sort(byKey(tn.Fields))
 			}
 
 			f.indentLevel++
-			b.WriteString("\n")
+			b.WriteByte('\n')
 			for i, fl := range tn.Fields {
-				b.WriteString(f.fmtNode(fl.Doc))
+				b.Write(f.fmtNode(fl.Doc))
 				ensureNewline()
-				b.WriteString(f.fmtNode(fl.Name))
-				b.WriteString(": ")
+				b.Write(f.fmtNode(fl.Name))
+				b.Write([]byte(": "))
 				f.skipNextIndent = true
-				b.WriteString(f.fmtNode(fl.Value))
+				b.Write(f.fmtNode(fl.Value))
 				if f.elideTrailingComma {
 					if i != len(tn.Fields)-1 {
-						b.WriteString(",")
+						b.WriteByte(',')
 					}
 				} else {
-					b.WriteString(",")
+					b.WriteByte(',')
 				}
 				if fl.Comment != nil {
-					b.WriteString(" ")
+					b.WriteByte(' ')
 					f.skipNextIndent = true
-					b.WriteString(f.fmtNode(fl.Comment))
+					b.Write(f.fmtNode(fl.Comment))
 				}
 				ensureNewline()
 			}
 			f.indentLevel--
-			b.WriteString(f.indent())
+			b.Write(f.indent())
 		}
-		b.WriteString("}")
+		b.WriteByte('}')
 	case *CommentGroup:
 		if f.skipComments {
 			// Whether or not we process this, reset indent.
 			f.skipNextIndent = false
-			return ""
+			return nil
 		}
 		// FIXME(msolo) Surely this isn't necessary? See above.
 		if tn == nil {
-			return ""
+			return nil
 		}
 		for _, c := range tn.List {
-			b.WriteString(f.indent())
+			b.Write(f.indent())
 			b.WriteString(c.Text)
 			if strings.HasPrefix(c.Text, "//") {
-				b.WriteString("\n")
+				b.WriteByte('\n')
 			}
 		}
 	}
-	return b.String()
+	return b.Bytes()
 }
 
 type Option func(f *formatter)
@@ -454,7 +470,7 @@ func OptionSortKeys(f *formatter) {
 }
 
 // Format an AST according to JSON rules for backward compatibility.
-func FmtJson(node Node, options ...Option) string {
+func FmtJson(node Node, options ...Option) []byte {
 	fmt := &formatter{
 		skipComments:       true,
 		elideTrailingComma: true,
@@ -466,7 +482,7 @@ func FmtJson(node Node, options ...Option) string {
 }
 
 // Format an AST according to some aesthetic heuristics. Thanks gofmt.
-func FmtJsonr(node Node, options ...Option) string {
+func FmtJsonr(node Node, options ...Option) []byte {
 	fmt := &formatter{}
 	for _, o := range options {
 		o(fmt)

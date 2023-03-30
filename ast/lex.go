@@ -3,8 +3,6 @@ package ast
 import (
 	"container/list"
 	"fmt"
-	"strings"
-	"unicode/utf8"
 )
 
 //go:generate stringer -type=itemType
@@ -48,14 +46,14 @@ func (f *fifo) Len() int {
 
 type lexer struct {
 	name  string // used only for error reports.
-	input string // the string being scanned.
+	input []byte // the data being scanned.
 	start int    // start position of this item.
 	pos   int    // current position in the input.
 	width int    // width of last rune read from input.
 	items *fifo
 }
 
-func lex(name, input string) *lexer {
+func lex(name string, input []byte) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
@@ -86,7 +84,7 @@ func (l *lexer) yield() (i *item) {
 func (l *lexer) emit(t itemType) {
 	v := l.input[l.start:l.pos]
 	//	fmt.Printf("emit %s %#v %d:%d\n", t, v, l.start, l.pos)
-	i := &item{t, v, l.start}
+	i := &item{t, string(v), l.start}
 	l.items.Put(i)
 	l.start = l.pos
 }
@@ -95,17 +93,16 @@ func (l *lexer) ignore() {
 	l.start = l.pos
 }
 
-const eof = -1
-
 // next returns the next rune in the input.
-func (l *lexer) next() (r rune) {
+func (l *lexer) next() (b byte, eof bool) {
 	if l.pos >= len(l.input) {
 		l.width = 0
-		return eof
+		return b, true
 	}
-	r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
+	l.width = 1
+	b = l.input[l.pos]
 	l.pos += l.width
-	return r
+	return b, false
 }
 
 // backup steps back one rune.
@@ -116,16 +113,30 @@ func (l *lexer) backup() {
 
 // peek returns but does not consume
 // the next rune in the input.
-func (l *lexer) peek() rune {
-	r := l.next()
+func (l *lexer) peek() byte {
+	r, _ := l.next()
 	l.backup()
 	return r
 }
 
-// accept consumes the next rune
+// accept consumes the next byte
 // if it's from the valid set.
-func (l *lexer) accept(valid string) bool {
-	if strings.ContainsRune(valid, l.next()) {
+func (l *lexer) accept(valid []byte) bool {
+	n, _ := l.next()
+	for _, b := range valid {
+		if n == b {
+			return true
+		}
+	}
+	l.backup()
+	return false
+}
+
+// accept consumes the next byte
+// if it's from the valid set.
+func (l *lexer) acceptByte(valid byte) bool {
+	n, _ := l.next()
+	if n == valid {
 		return true
 	}
 	l.backup()
@@ -133,17 +144,54 @@ func (l *lexer) accept(valid string) bool {
 }
 
 // acceptRun consumes a run of runes from the valid set.
-func (l *lexer) acceptRun(valid string) (accepted bool) {
-	for strings.ContainsRune(valid, l.next()) {
+func (l *lexer) acceptRun(valid []byte) (accepted bool) {
+	for l.accept(valid) {
 		accepted = true
 	}
-	l.backup()
 	return accepted
 }
 
-// error returns an error token and terminates the scan
-// by passing back a nil pointer that will be the next
-// state, terminating l.run.
+func (l *lexer) acceptInt() (accepted bool) {
+	for {
+		n, _ := l.next()
+		if '0' <= n && n <= '9' {
+			accepted = true
+		} else {
+			l.backup()
+			return accepted
+		}
+	}
+}
+func (l *lexer) acceptWhitespace() (accepted bool) {
+	for {
+		n, _ := l.next()
+		switch n {
+		case ' ', '\t', '\n', '\r':
+			accepted = true
+		default:
+			l.backup()
+			return accepted
+		}
+	}
+}
+func (l *lexer) acceptHex() (accepted bool) {
+	for {
+		n, _ := l.next()
+		switch {
+		case '0' <= n && n <= '9':
+			accepted = true
+		case 'a' <= n && n <= 'f':
+			accepted = true
+		case 'A' <= n && n <= 'F':
+			accepted = true
+		default:
+			l.backup()
+			return accepted
+		}
+	}
+}
+
+// error panics an error token and terminates the scan
 func (l *lexer) errorf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if msg == "" {
@@ -158,7 +206,7 @@ func (l *lexer) errorf(format string, args ...interface{}) {
 	panic(i)
 }
 
-func hasPrefixByte(s string, b byte) bool {
+func hasPrefixByte(s []byte, b byte) bool {
 	if len(s) == 0 {
 		return false
 	}

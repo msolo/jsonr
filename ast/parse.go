@@ -30,7 +30,7 @@ func (p *parser) peek() *item {
 
 // Parse a JSON string. Objects will be map[string]interface{}, arrays
 // []interface{} and numbers will be float64 for now.
-func (p *parser) parse(input string) (interface{}, error) {
+func (p *parser) parse(input []byte) (interface{}, error) {
 	p.lex = lex("parse-lexer", input)
 	p.next()
 	p.skipWhitespaceOrComment()
@@ -146,6 +146,6 @@ func (p *parser) parseObject() (interface{}, error) {
 // Unmarshal a JSON string. Objects will be map[string]interface{}, arrays
 // []interface{} and numbers will be float64 for now.
 // jsonr.Unmarshal is slower, but substantially more useful.
-func JsonUnmarshal(in string) (interface{}, error) {
+func JsonUnmarshal(in []byte) (interface{}, error) {
 	return (&parser{}).parse(in)
 }

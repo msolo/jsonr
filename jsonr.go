@@ -16,7 +16,7 @@ import (
 
 // See json.Unmarshal.
 func Unmarshal(data []byte, v interface{}) error {
-	js, err := Convert2Json(string(data))
+	js, err := Convert2Json(data)
 	if err != nil {
 		return err
 	}
@@ -34,11 +34,11 @@ func (jr *jsonrReader) Read(b []byte) (n int, err error) {
 		if err != nil {
 			return 0, err
 		}
-		stripped, err := Convert2Json(string(in))
+		stripped, err := Convert2Json(in)
 		if err != nil {
 			return 0, err
 		}
-		jr.buf = bytes.NewBuffer([]byte(stripped))
+		jr.buf = bytes.NewBuffer(stripped)
 	}
 	return jr.buf.Read(b)
 }
@@ -56,10 +56,10 @@ func NewDecoder(r io.Reader) *json.Decoder {
 
 // Return a JSON-compatible string from a JSONR source string.
 // This removes comments and normalizes trailing commas.
-func Convert2Json(in string) (string, error) {
+func Convert2Json(in []byte) ([]byte, error) {
 	tree, err := ast.Parse(in)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return ast.FmtJson(tree), nil
 }

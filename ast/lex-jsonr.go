@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"strings"
+	"bytes"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 func lexStream(l *lexer) {
 	for {
 		lexElement(l)
-		if l.next() == eof {
+		if _, eof := l.next(); eof {
 			l.emit(itemEOF) // Useful to make EOF a token.
 			return
 		}
@@ -36,7 +36,7 @@ func lexStream(l *lexer) {
 }
 
 func lexWhitespace(l *lexer) {
-	if l.acceptRun(" \t\r\n") {
+	if l.acceptWhitespace() {
 		l.emit(itemWhitespace)
 	}
 }
@@ -56,28 +56,43 @@ func lexElement(l *lexer) {
 }
 
 func lexValue(l *lexer) {
-	prefix := l.input[l.pos:]
-	switch {
-	case hasPrefixByte(prefix, '{'):
+	b := l.input[l.pos]
+	switch b {
+	case '{':
 		lexObject(l)
-	case hasPrefixByte(prefix, '['):
+	case '[':
 		lexArray(l)
-	case hasPrefixByte(prefix, '"'):
+	case '"':
 		lexString(l)
-	case strings.HasPrefix(prefix, "true"):
+	case 't':
+		//"true"):
 		l.pos += 4
 		l.emit(itemTrue)
-	case strings.HasPrefix(prefix, "false"):
+	case 'f':
+		//strings.HasPrefix(prefix, "false"):
 		l.pos += 5
 		l.emit(itemFalse)
-	case strings.HasPrefix(prefix, "null"):
+	case 'n':
+		//strings.HasPrefix(prefix, "null"):
 		l.pos += 4
 		l.emit(itemNull)
-	case strings.ContainsAny(prefix, "-0123456789"):
+	case '-':
+		//strings.ContainsAny(prefix, "-0123456789"):
 		lexNumber(l)
 	default:
-		l.errorf("invalid element: %s", l.input[l.pos:l.pos+10])
+		if '0' <= b && b <= '9' {
+			lexNumber(l)
+		} else {
+			l.errorf("invalid element: %s", l.input[l.pos:min(len(l.input), l.pos+10)])
+		}
 	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func lexObject(l *lexer) {
@@ -86,7 +101,7 @@ func lexObject(l *lexer) {
 	lexWhitespaceOrComment(l)
 	lexMembers(l)
 	lexWhitespaceOrComment(l)
-	if l.accept("}") {
+	if l.acceptByte('}') {
 		l.emit(itemObjectClose)
 	} else {
 		l.errorf("unclosed object")
@@ -101,7 +116,7 @@ func lexMembers(l *lexer) {
 			return
 		default:
 			lexMember(l)
-			if l.accept(",") {
+			if l.acceptByte(',') {
 				l.emit(itemComma)
 			} else {
 				return
@@ -112,13 +127,13 @@ func lexMembers(l *lexer) {
 
 func lexMember(l *lexer) {
 	lexWhitespaceOrComment(l)
-	if !l.accept(`"`) {
+	if !l.acceptByte('"') {
 		l.errorf("object key must be string pos:%d : %s", l.start, l.input[l.start:l.pos])
 		return
 	}
 	lexString(l)
 	lexWhitespaceOrComment(l)
-	if !l.accept(`:`) {
+	if !l.acceptByte(':') {
 		l.errorf("object member has no : delimiter")
 		return
 	}
@@ -135,7 +150,7 @@ func lexArray(l *lexer) {
 	lexWhitespaceOrComment(l)
 	lexElements(l)
 	lexWhitespaceOrComment(l)
-	if l.accept("]") {
+	if l.acceptByte(']') {
 		l.emit(itemArrayClose)
 	} else {
 		l.errorf("unclosed array")
@@ -150,7 +165,7 @@ func lexElements(l *lexer) {
 			return
 		default:
 			lexElement(l)
-			if l.accept(",") {
+			if l.acceptByte(',') {
 				l.emit(itemComma)
 			} else {
 				return
@@ -159,23 +174,27 @@ func lexElements(l *lexer) {
 	}
 }
 
+var validNumbers = []byte("0123456789")
+var validExponent = []byte("eE")
+var validSign = []byte("+-")
+
 func lexNumber(l *lexer) {
 	// optional prefix
-	l.accept("-")
+	l.acceptByte('-')
 	// The spec says leading zeros are verboten, but that seems pointlessly pedantic.
-	if !l.acceptRun("0123456789") {
+	if !l.acceptRun(validNumbers) {
 		l.errorf("malformed integer number")
 		return
 	}
-	if l.accept(".") {
-		if !l.acceptRun("0123456789") {
+	if l.acceptByte('.') {
+		if !l.acceptInt() {
 			l.errorf("malformed real number")
 			return
 		}
 	}
-	if l.accept("eE") {
-		l.accept("+-")
-		if !l.acceptRun("0123456789") {
+	if l.accept(validExponent) {
+		l.accept(validSign)
+		if !l.acceptInt() {
 			l.errorf("malformed exponent")
 			return
 		}
@@ -183,22 +202,25 @@ func lexNumber(l *lexer) {
 	l.emit(itemNumber)
 }
 
+var validEscapes = []byte(`"\/bfnrt`)
+
 func lexString(l *lexer) {
 	// swallow leading "
 	l.pos += 1
+
 	for {
 		switch {
 		case hasPrefixByte(l.input[l.pos:], '"'):
 			l.pos += 1 // swallow ending "
 			l.emit(itemString)
 			return
-		case l.accept(`\`):
+		case l.acceptByte('\\'):
 			switch {
-			case l.accept(`"\/bfnrt`):
+			case l.accept(validEscapes):
 				continue
-			case l.accept("u"):
+			case l.acceptByte('u'):
 				for i := 0; i < 4; i++ {
-					if l.accept("0123456789abcdefABCDEF") {
+					if l.acceptHex() {
 						l.errorf("invalid unicode escape sequence")
 					}
 				}
@@ -207,36 +229,42 @@ func lexString(l *lexer) {
 				l.errorf("invalid escaped character")
 			}
 		}
-		if l.next() == eof {
+		if _, eof := l.next(); eof {
 			l.errorf("unexpected EOF scanning string")
 		}
 	}
 }
 
 func lexComment(l *lexer) bool {
-	if hasPrefixByte(l.input[l.pos:], '/') {
-		if hasPrefixByte(l.input[l.pos+1:], '/') {
+	if l.peek() == '/' {
+		l.pos += 1
+		switch l.peek() {
+		case '/':
 			lexLineComment(l)
 			return true
-		}
-		if hasPrefixByte(l.input[l.pos+1:], '*') {
+		case '*':
 			lexRangeComment(l)
 			return true
 		}
+		l.backup()
 	}
+
 	return false
 }
 
 func lexLineComment(l *lexer) {
 	// swallow //
-	l.pos += 2
+	l.pos += 1
 	for {
-		if hasPrefixByte(l.input[l.pos:], '\n') {
+		b, eof := l.next()
+
+		if b == '\n' {
+			l.backup()
 			// don't include trailng \n
 			l.emit(itemComment)
 			return
 		}
-		if l.next() == eof {
+		if eof {
 			break
 		}
 	}
@@ -247,17 +275,19 @@ func lexLineComment(l *lexer) {
 	l.emit(itemEOF)
 }
 
+var endRangeComment = []byte("*/")
+
 func lexRangeComment(l *lexer) {
 	// swallow /*
-	l.pos += 2
+	l.pos += 1
 	for {
-		if strings.HasPrefix(l.input[l.pos:], "*/") {
+		if bytes.HasPrefix(l.input[l.pos:], endRangeComment) {
 			// swallow */
 			l.pos += 2
 			l.emit(itemComment)
 			return
 		}
-		if l.next() == eof {
+		if _, eof := l.next(); eof {
 			l.errorf("unexpected EOF scanning comment")
 			return
 		}
