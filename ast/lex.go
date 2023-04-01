@@ -3,6 +3,7 @@ package ast
 import (
 	"container/list"
 	"fmt"
+	"sync"
 )
 
 //go:generate stringer -type=itemType
@@ -10,7 +11,7 @@ type itemType int
 
 type item struct {
 	typ   itemType
-	val   string
+	val   []byte
 	start int
 }
 
@@ -80,11 +81,24 @@ func (l *lexer) yield() (i *item) {
 	return &item{typ: itemEOF}
 }
 
+var itemPool = sync.Pool{
+	New: func() interface{} {
+		// The Pool's New function should generally only return pointer
+		// types, since a pointer can be put into the return interface
+		// value without an allocation:
+		return new(item)
+	},
+}
+
 // emit passes an item back to the client.
 func (l *lexer) emit(t itemType) {
 	v := l.input[l.start:l.pos]
 	//	fmt.Printf("emit %s %#v %d:%d\n", t, v, l.start, l.pos)
-	i := &item{t, string(v), l.start}
+	// i := itemPool.Get().(*item)
+	// i.typ = t
+	// i.val = v
+	// i.start = l.start
+	i := &item{t, v, l.start}
 	l.items.Put(i)
 	l.start = l.pos
 }
@@ -199,7 +213,7 @@ func (l *lexer) errorf(format string, args ...interface{}) {
 	}
 	i := &item{
 		itemError,
-		msg,
+		[]byte(msg),
 		l.pos, // The "start" of the error is typically the current position, not where the token itself started.
 	}
 	l.items.Put(i)

@@ -9,7 +9,7 @@ func TestParse(t *testing.T) {
 			t.Fatal(input, err)
 		}
 		if v != expectedVal {
-			t.Fatalf(`expected %#v, got %#v`, expectedVal, v)
+			t.Fatalf(`expected %T %#v, got %T, %v, %s`, expectedVal, expectedVal, v, v, v)
 		}
 	}
 

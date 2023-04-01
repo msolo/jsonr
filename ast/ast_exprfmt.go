@@ -66,7 +66,7 @@ func (f *expFormatter) fmtNode(n Node) string {
 	case *Literal:
 		b.WriteString(f.fmtKeyPath(f.keyPath))
 		b.WriteString(" = ")
-		b.WriteString(tn.Value)
+		b.Write(tn.Value)
 		ensureNewline()
 	case *Array:
 		if len(tn.Elements) != 0 {
@@ -83,7 +83,7 @@ func (f *expFormatter) fmtNode(n Node) string {
 			f.keyPath = append(f.keyPath, nil)
 			for _, fl := range tn.Fields {
 				v := fl.Name.(*Literal).Value
-				s, err := strconv.Unquote(v)
+				s, err := strconv.Unquote(string(v))
 				if err != nil {
 					panic(fmt.Errorf("unquote err: %s %s", err, v))
 				}

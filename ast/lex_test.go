@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"bytes"
 	"testing"
 )
 
@@ -20,8 +21,8 @@ func lexToSlice(t *testing.T, s string) []*item {
 }
 
 func checkItem(t *testing.T, i *item, val string) {
-	if i.val != val {
-		t.Fatalf("expected %#v: got %#v", val, i.val)
+	if !bytes.Equal(i.val, []byte(val)) {
+		t.Fatalf("expected %s: got %s", val, i.val)
 	}
 }
 
@@ -31,8 +32,8 @@ func checkTokenVals(t *testing.T, items []*item, val ...string) {
 		t.Fatalf("expected %d tokens: got %d", len(val)+1, len(items))
 	}
 	for i, v := range val {
-		if items[i].val != v {
-			t.Fatalf("expected %#v: got %#v at token %d", v, items[i].val, i)
+		if !bytes.Equal(items[i].val, []byte(v)) {
+			t.Fatalf("expected %#v: got %s at token %d", v, items[i].val, i)
 		}
 	}
 }

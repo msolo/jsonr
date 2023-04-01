@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 type File struct {
@@ -177,6 +176,12 @@ func (p *astParser) parseCommentGroup() *CommentGroup {
 	}
 }
 
+var (
+	_true  = &Literal{Type: LiteralTrue, Value: []byte("true")}
+	_false = &Literal{Type: LiteralFalse, Value: []byte("false")}
+	_null  = &Literal{Type: LiteralNull, Value: []byte("null")}
+)
+
 func (p *astParser) parseElement() (Node, error) {
 	switch p.item.typ {
 	case itemString:
@@ -188,11 +193,11 @@ func (p *astParser) parseElement() (Node, error) {
 		return &Literal{Type: LiteralString,
 			Value: p.item.val}, nil
 	case itemTrue:
-		return &Literal{Type: LiteralTrue, Value: "true"}, nil
+		return _true, nil
 	case itemFalse:
-		return &Literal{Type: LiteralFalse, Value: "false"}, nil
+		return _false, nil
 	case itemNull:
-		return &Literal{Type: LiteralNull, Value: "null"}, nil
+		return _null, nil
 	case itemNumber:
 		return &Literal{Type: LiteralNumber, Value: p.item.val}, nil
 	case itemArrayOpen:
@@ -239,7 +244,7 @@ func (p *astParser) parseArray() (Node, error) {
 			// the current element. We don't support arbitrary whitespace
 			// while formatting. That's another kettle of fish at this
 			// point.
-			if p.item.typ == itemWhitespace && strings.Contains(p.item.val, "\n") {
+			if p.item.typ == itemWhitespace && bytes.IndexByte(p.item.val, '\n') >= 0 {
 				p.next()
 				continue
 			}
@@ -300,7 +305,7 @@ func (p *astParser) parseObject() (Node, error) {
 			// the current element. We don't support arbitrary whitespace
 			// while formatting. That's another kettle of fish at this
 			// point.
-			if p.item.typ == itemWhitespace && strings.Contains(p.item.val, "\n") {
+			if p.item.typ == itemWhitespace && bytes.IndexByte(p.item.val, '\n') >= 0 {
 				p.next()
 				continue
 			}
@@ -330,6 +335,7 @@ type formatter struct {
 	skipComments       bool
 	elideTrailingComma bool
 	sortKeys           bool
+	buf                *bytes.Buffer
 }
 
 // Too clever? Doens't seem to help...
@@ -360,7 +366,11 @@ func (f *formatter) fmtNode(n Node) []byte {
 	// }
 
 	//b := &bytes.Buffer{}
-	b := bytes.NewBuffer(make([]byte, 0, 4096))
+	if f.buf == nil {
+		f.buf = bytes.NewBuffer(make([]byte, 0, 64))
+	}
+	b := f.buf
+
 	ensureNewline := func() {
 		if buf := b.Bytes(); len(buf) > 0 && buf[len(buf)-1] != '\n' {
 			b.WriteByte('\n')
@@ -377,7 +387,7 @@ func (f *formatter) fmtNode(n Node) []byte {
 		ensureNewline()
 	case *Literal:
 		b.Write(f.indent())
-		b.WriteString(tn.Value)
+		b.Write(tn.Value)
 	case *Array:
 		b.Write(f.indent())
 		b.WriteByte('[')
@@ -454,13 +464,14 @@ func (f *formatter) fmtNode(n Node) []byte {
 		}
 		for _, c := range tn.List {
 			b.Write(f.indent())
-			b.WriteString(c.Text)
-			if strings.HasPrefix(c.Text, "//") {
+			b.Write(c.Text)
+			// FIXME(msolo)
+			if bytes.HasPrefix(c.Text, []byte("//")) {
 				b.WriteByte('\n')
 			}
 		}
 	}
-	return b.Bytes()
+	return nil
 }
 
 type Option func(f *formatter)
@@ -478,7 +489,8 @@ func FmtJson(node Node, options ...Option) []byte {
 	for _, opt := range options {
 		opt(fmt)
 	}
-	return fmt.fmtNode(node)
+	fmt.fmtNode(node)
+	return fmt.buf.Bytes()
 }
 
 // Format an AST according to some aesthetic heuristics. Thanks gofmt.
@@ -487,11 +499,16 @@ func FmtJsonr(node Node, options ...Option) []byte {
 	for _, o := range options {
 		o(fmt)
 	}
-	return fmt.fmtNode(node)
+	fmt.fmtNode(node)
+	return fmt.buf.Bytes()
 }
 
 type byKey []*Field
 
-func (a byKey) Len() int           { return len(a) }
-func (a byKey) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byKey) Less(i, j int) bool { return a[i].Name.(*Literal).Value < a[j].Name.(*Literal).Value }
+func (a byKey) Len() int      { return len(a) }
+func (a byKey) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a byKey) Less(i, j int) bool {
+	return (bytes.Compare(
+		a[i].Name.(*Literal).Value,
+		a[j].Name.(*Literal).Value) < 0)
+}
