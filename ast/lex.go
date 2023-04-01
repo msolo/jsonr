@@ -3,7 +3,6 @@ package ast
 import (
 	"container/list"
 	"fmt"
-	"sync"
 )
 
 //go:generate stringer -type=itemType
@@ -45,20 +44,58 @@ func (f *fifo) Len() int {
 	return f.deque.Len()
 }
 
+type itemRing struct {
+	buf  []item
+	rIdx int
+	wIdx int
+}
+
+func (r *itemRing) Get() *item {
+	i := r.rIdx
+	r.rIdx = (i + 1) % cap(r.buf)
+	return &r.buf[i]
+}
+
+func (r *itemRing) Put(i *item) {
+	if r.Cap() <= 0 {
+		panic(fmt.Errorf("ring out of capacity"))
+	}
+	n := r.wIdx
+	r.wIdx = (n + 1) % cap(r.buf)
+	r.buf[n] = *i
+}
+
+func (r *itemRing) Len() int {
+	switch {
+	case r.rIdx == r.wIdx:
+		return 0
+	case r.rIdx < r.wIdx:
+		return r.wIdx - r.rIdx
+	default:
+		return len(r.buf) - r.rIdx + r.wIdx
+	}
+}
+
+func (r *itemRing) Cap() int {
+	return cap(r.buf) - r.Len()
+}
+
 type lexer struct {
 	name  string // used only for error reports.
 	input []byte // the data being scanned.
 	start int    // start position of this item.
 	pos   int    // current position in the input.
 	width int    // width of last rune read from input.
-	items *fifo
+	//items *fifo
+	items *itemRing
 }
 
 func lex(name string, input []byte) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
-		items: &fifo{list.New()},
+		//		items: &fifo{list.New()},
+		items: &itemRing{buf: make([]item, 128)},
 	}
 	return l
 }
@@ -68,7 +105,13 @@ func lex(name string, input []byte) *lexer {
 func (l *lexer) yield() (i *item) {
 	defer func() {
 		if x := recover(); x != nil {
-			i = x.(*item)
+			_i, ok := x.(*item)
+			if ok {
+				i = _i
+			} else {
+				panic(x)
+			}
+
 		}
 	}()
 	if l.items.Len() > 0 {
@@ -81,6 +124,8 @@ func (l *lexer) yield() (i *item) {
 	return &item{typ: itemEOF}
 }
 
+/* var itemPoolItems = make([]item, 1000)
+var itemPoolIdx = 0
 var itemPool = sync.Pool{
 	New: func() interface{} {
 		// The Pool's New function should generally only return pointer
@@ -89,7 +134,7 @@ var itemPool = sync.Pool{
 		return new(item)
 	},
 }
-
+*/
 // emit passes an item back to the client.
 func (l *lexer) emit(t itemType) {
 	v := l.input[l.start:l.pos]

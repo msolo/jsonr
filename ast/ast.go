@@ -348,12 +348,15 @@ var indent = [][]byte{
 	[]byte("          "),
 }
 
+var valueDelimiter = []byte(": ")
+var indentDelimiter = []byte("  ")
+
 func (f *formatter) indent() []byte {
 	if f.skipNextIndent {
 		f.skipNextIndent = false
 		return nil
 	}
-	return bytes.Repeat([]byte("  "), f.indentLevel)
+	return bytes.Repeat(indentDelimiter, f.indentLevel)
 	//return indent[f.indentLevel]
 }
 
@@ -379,11 +382,11 @@ func (f *formatter) fmtNode(n Node) []byte {
 
 	switch tn := n.(type) {
 	case *File:
-		b.Write(f.fmtNode(tn.Doc))
+		f.fmtNode(tn.Doc)
 		ensureNewline()
-		b.Write(f.fmtNode(tn.Root))
+		f.fmtNode(tn.Root)
 		ensureNewline()
-		b.Write(f.fmtNode(tn.Comment))
+		f.fmtNode(tn.Comment)
 		ensureNewline()
 	case *Literal:
 		b.Write(f.indent())
@@ -395,9 +398,9 @@ func (f *formatter) fmtNode(n Node) []byte {
 			f.indentLevel++
 			b.WriteByte('\n')
 			for i, e := range tn.Elements {
-				b.Write(f.fmtNode(e.Doc))
+				f.fmtNode(e.Doc)
 				ensureNewline()
-				b.Write(f.fmtNode(e.Value))
+				f.fmtNode(e.Value)
 				if f.elideTrailingComma {
 					if i != len(tn.Elements)-1 {
 						b.WriteByte(',')
@@ -409,7 +412,7 @@ func (f *formatter) fmtNode(n Node) []byte {
 				if e.Comment != nil {
 					b.WriteByte(' ')
 					f.skipNextIndent = true
-					b.Write(f.fmtNode(e.Comment))
+					f.fmtNode(e.Comment)
 				}
 				ensureNewline()
 			}
@@ -428,12 +431,12 @@ func (f *formatter) fmtNode(n Node) []byte {
 			f.indentLevel++
 			b.WriteByte('\n')
 			for i, fl := range tn.Fields {
-				b.Write(f.fmtNode(fl.Doc))
+				f.fmtNode(fl.Doc)
 				ensureNewline()
-				b.Write(f.fmtNode(fl.Name))
-				b.Write([]byte(": "))
+				f.fmtNode(fl.Name)
+				b.Write(valueDelimiter)
 				f.skipNextIndent = true
-				b.Write(f.fmtNode(fl.Value))
+				f.fmtNode(fl.Value)
 				if f.elideTrailingComma {
 					if i != len(tn.Fields)-1 {
 						b.WriteByte(',')
@@ -444,7 +447,7 @@ func (f *formatter) fmtNode(n Node) []byte {
 				if fl.Comment != nil {
 					b.WriteByte(' ')
 					f.skipNextIndent = true
-					b.Write(f.fmtNode(fl.Comment))
+					f.fmtNode(fl.Comment)
 				}
 				ensureNewline()
 			}
