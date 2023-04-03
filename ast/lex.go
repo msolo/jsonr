@@ -86,8 +86,8 @@ type lexer struct {
 	start int    // start position of this item.
 	pos   int    // current position in the input.
 	width int    // width of last rune read from input.
-	//items *fifo
-	items   *itemRing
+	items *fifo
+	//items   *itemRing
 	emitter func(t itemType, val []byte, start int)
 }
 
@@ -95,8 +95,8 @@ func lex(name string, input []byte) *lexer {
 	l := &lexer{
 		name:  name,
 		input: input,
-		//		items: &fifo{list.New()},
-		items: &itemRing{buf: make([]item, 128)},
+		items: &fifo{list.New()},
+		//items: &itemRing{buf: make([]item, 128)},
 	}
 	return l
 }

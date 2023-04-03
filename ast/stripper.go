@@ -3,7 +3,8 @@ package ast
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"io"
+	"io/ioutil"
 )
 
 type stripper struct {
@@ -14,7 +15,6 @@ type stripper struct {
 
 func (p *stripper) next() *item {
 	p.item = p.lex.yield()
-	//fmt.Println("item", p.item)
 	return p.item
 }
 
@@ -22,23 +22,13 @@ func (p *stripper) next() *item {
 // []interface{} and numbers will be float64 for now.
 func (p *stripper) Strip(input []byte) ([]byte, error) {
 	p.lex = lex("parse-lexer", input)
+	p.lex.emitter = p.emitter
 	for {
 		i := p.next()
 		if i.typ == itemEOF {
 			return p.buf.Bytes(), nil
 		}
 		p.emitter(i.typ, i.val, i.start)
-	}
-}
-
-func (p *stripper) skipWhitespaceOrComment() {
-	for {
-		switch p.item.typ {
-		case itemWhitespace, itemComment:
-			p.next()
-		default:
-			return
-		}
 	}
 }
 
@@ -67,94 +57,13 @@ func (p *stripper) emitter(t itemType, val []byte, start int) {
 		p.buf.WriteString("}")
 	case itemColon:
 		p.buf.WriteString(":")
+	case itemEOF:
+		return
 		// case itemError:
 		// 	return fmt.Errorf("parse err: %#v", p.item.val)
 		// default:
 		// 	return fmt.Errorf("unknown type: %v", p.item.typ)
 
-	}
-}
-
-func (p *stripper) parseElement() error {
-	switch p.item.typ {
-	case itemString:
-		p.buf.Write(p.item.val)
-	case itemTrue:
-		p.buf.WriteString("true")
-	case itemFalse:
-		p.buf.WriteString("false")
-	case itemNull:
-		p.buf.WriteString("null")
-	case itemNumber:
-		p.buf.Write(p.item.val)
-	case itemArrayOpen:
-		p.buf.WriteString("[")
-		return p.parseArray()
-	case itemObjectOpen:
-		p.buf.WriteString("{")
-		return p.parseObject()
-	case itemError:
-		return fmt.Errorf("parse err: %#v", p.item.val)
-	default:
-		return fmt.Errorf("unknown type: %v", p.item.typ)
-	}
-	return nil
-}
-
-func (p *stripper) parseArray() error {
-	for {
-		p.next()
-		switch p.item.typ {
-		case itemWhitespace, itemComment:
-			continue
-		case itemArrayClose:
-			p.buf.WriteString("]")
-			return nil
-		case itemComma:
-			p.buf.WriteString(",")
-		case itemEOF:
-			return fmt.Errorf("unexpected EOF reading array")
-		default:
-			err := p.parseElement()
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (p *stripper) parseObject() error {
-	for {
-		p.next()
-		switch p.item.typ {
-		case itemWhitespace:
-			continue
-		case itemComma:
-			p.buf.WriteString(",")
-		case itemObjectClose:
-			p.buf.WriteString("}")
-			return nil
-		case itemString:
-			key := p.item.val
-			p.next()
-			p.skipWhitespaceOrComment()
-
-			if p.item.typ != itemColon {
-				return fmt.Errorf("expected colon delimiter for key token")
-			}
-
-			p.next()
-			p.skipWhitespaceOrComment()
-
-			p.buf.Write(key)
-			p.buf.WriteString(":")
-			err := p.parseElement()
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("invalid key token %v", p.item)
-		}
 	}
 }
 
@@ -168,4 +77,29 @@ func JsonUnmarshalFast(in []byte, x interface{}) error {
 		return err
 	}
 	return json.Unmarshal(b, x)
+}
+
+type stripReader struct {
+	r   io.Reader
+	buf *bytes.Buffer
+}
+
+func (jr *stripReader) Read(b []byte) (n int, err error) {
+	if jr.buf == nil {
+		in, err := ioutil.ReadAll(jr.r)
+		if err != nil {
+			return 0, err
+		}
+		stripped, err := FastStrip(in)
+		if err != nil {
+			return 0, err
+		}
+		jr.buf = bytes.NewBuffer(stripped)
+	}
+	return jr.buf.Read(b)
+}
+
+func NewDecoder(r io.Reader) *json.Decoder {
+	jr := &stripReader{r: r}
+	return json.NewDecoder(jr)
 }
