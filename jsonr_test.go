@@ -108,6 +108,26 @@ func BenchmarkJSONR(b *testing.B) {
 	}
 }
 
+func BenchmarkJSONRFast(b *testing.B) {
+	in := benchChunk
+	out := &struct{}{}
+	for i := 0; i < b.N; i++ {
+		err := ast.JsonUnmarshalFast(in, out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+func BenchmarkJSONRFastStrip(b *testing.B) {
+	in := benchChunk
+	for i := 0; i < b.N; i++ {
+		_, err := ast.FastStrip(in)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
 func BenchmarkJSONReal(b *testing.B) {
 	in := vaguelyRealistic
 	out := &struct{}{}

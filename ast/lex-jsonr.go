@@ -112,7 +112,7 @@ func lexMembers(l *lexer) {
 	for {
 		lexWhitespaceOrComment(l)
 		switch {
-		case hasPrefixByte(l.input[l.pos:], '}'):
+		case l.peek() == '}':
 			return
 		default:
 			lexMember(l)
@@ -161,7 +161,7 @@ func lexElements(l *lexer) {
 	for {
 		lexWhitespaceOrComment(l)
 		switch {
-		case hasPrefixByte(l.input[l.pos:], ']'):
+		case l.peek() == ']':
 			return
 		default:
 			lexElement(l)
@@ -210,8 +210,7 @@ func lexString(l *lexer) {
 
 	for {
 		switch {
-		case hasPrefixByte(l.input[l.pos:], '"'):
-			l.pos += 1 // swallow ending "
+		case l.acceptByte('"'):
 			l.emit(itemString)
 			return
 		case l.acceptByte('\\'):

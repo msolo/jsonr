@@ -87,7 +87,8 @@ type lexer struct {
 	pos   int    // current position in the input.
 	width int    // width of last rune read from input.
 	//items *fifo
-	items *itemRing
+	items   *itemRing
+	emitter func(t itemType, val []byte, start int)
 }
 
 func lex(name string, input []byte) *lexer {
@@ -143,8 +144,12 @@ func (l *lexer) emit(t itemType) {
 	// i.typ = t
 	// i.val = v
 	// i.start = l.start
-	i := &item{t, v, l.start}
-	l.items.Put(i)
+	if l.emitter != nil {
+		l.emitter(t, v, l.start)
+	} else {
+		i := &item{t, v, l.start}
+		l.items.Put(i)
+	}
 	l.start = l.pos
 }
 
@@ -265,9 +270,9 @@ func (l *lexer) errorf(format string, args ...interface{}) {
 	panic(i)
 }
 
-func hasPrefixByte(s []byte, b byte) bool {
-	if len(s) == 0 {
-		return false
-	}
-	return s[0] == b
-}
+// func hasPrefixByte(s []byte, b byte) bool {
+// 	if len(s) == 0 {
+// 		return false
+// 	}
+// 	return s[0] == b
+// }
