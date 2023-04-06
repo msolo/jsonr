@@ -67,9 +67,10 @@ func TestJson(t *testing.T) {
 		t.Error(err)
 	}
 }
-
-func BenchmarkJSON(b *testing.B) {
+func BenchmarkJSONUnmarshalEmptyStruct(b *testing.B) {
 	in := benchChunk
+	// I think this causes simple parsing without assinging/allocating any values.
+	// It's not necessarily representative - but hey, benchmark!
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := json.Unmarshal(in, out)
@@ -79,7 +80,18 @@ func BenchmarkJSON(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONRVanilla(b *testing.B) {
+func BenchmarkJSONUnmarshalMap(b *testing.B) {
+	in := benchChunk
+	out := make(map[string]interface{})
+	for i := 0; i < b.N; i++ {
+		err := json.Unmarshal(in, &out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkJSONRUnmarshalMap(b *testing.B) {
 	in := benchChunk
 	for i := 0; i < b.N; i++ {
 		_, err := ast.JsonUnmarshal(in)
@@ -97,7 +109,7 @@ func BenchmarkJSONRVanilla(b *testing.B) {
 // merged loop over bytes. Of course, it is still absolutely
 // "fast-enough" for almost any application I had planned, but best to
 // know the costs.
-func BenchmarkJSONR(b *testing.B) {
+func BenchmarkJSONRUnmarshalEmptyStruct(b *testing.B) {
 	in := benchChunk
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
@@ -108,7 +120,7 @@ func BenchmarkJSONR(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONRFast(b *testing.B) {
+func BenchmarkJSONRUnmarshalEmptyStructFast(b *testing.B) {
 	in := benchChunk
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
@@ -118,6 +130,17 @@ func BenchmarkJSONRFast(b *testing.B) {
 		}
 	}
 }
+func BenchmarkJSONRUnmarshalMapFast(b *testing.B) {
+	in := benchChunk
+	out := make(map[string]interface{})
+	for i := 0; i < b.N; i++ {
+		err := ast.JsonUnmarshalFast(in, &out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
 func BenchmarkJSONRFastStrip(b *testing.B) {
 	in := benchChunk
 	for i := 0; i < b.N; i++ {
