@@ -151,11 +151,21 @@ func BenchmarkJSONRFastStrip(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONReal(b *testing.B) {
+func TestJSONRFastStripRealistic(t *testing.T) {
+	in := vaguelyRealistic
+	out, err := ast.FastStrip(in)
+	if err != nil {
+		t.Errorf("err: %s", err)
+	}
+	t.Logf("stripped: %s", string(out))
+}
+
+func BenchmarkJSONRRealistic(b *testing.B) {
 	in := vaguelyRealistic
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
-		err := Unmarshal(in, out)
+		err := ast.JsonUnmarshalFast(in, &out)
+		//err := Unmarshal(in, out)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}

@@ -3,19 +3,15 @@ package ast
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 )
 
 type stripper struct {
-	lex  *lexer
-	item *item
-	buf  *bytes.Buffer
-}
-
-func (p *stripper) next() *item {
-	p.item = p.lex.yield()
-	return p.item
+	lex      *lexer
+	buf      *bytes.Buffer
+	prevItem *item
 }
 
 // Parse a JSON string. Objects will be map[string]interface{}, arrays
@@ -24,18 +20,26 @@ func (p *stripper) Strip(input []byte) ([]byte, error) {
 	p.lex = lex("parse-lexer", input)
 	p.lex.emitter = p.emitter
 	for {
-		i := p.next()
+		i := p.lex.yield()
 		if i.typ == itemEOF {
 			return p.buf.Bytes(), nil
 		}
-		p.emitter(i.typ, i.val, i.start)
 	}
 }
 
 func (p *stripper) emitter(t itemType, val []byte, start int) {
-	switch t {
+	if p.prevItem == nil {
+		p.prevItem = &item{t, val, start}
+		return
+	}
+
+	if t == itemWhitespace || t == itemComment {
+		return
+	}
+
+	switch p.prevItem.typ {
 	case itemString:
-		p.buf.Write(val)
+		p.buf.Write(p.prevItem.val)
 	case itemTrue:
 		p.buf.WriteString("true")
 	case itemFalse:
@@ -43,7 +47,7 @@ func (p *stripper) emitter(t itemType, val []byte, start int) {
 	case itemNull:
 		p.buf.WriteString("null")
 	case itemNumber:
-		p.buf.Write(val)
+		p.buf.Write(p.prevItem.val)
 	case itemArrayOpen:
 		p.buf.WriteString("[")
 	case itemObjectOpen:
@@ -52,19 +56,25 @@ func (p *stripper) emitter(t itemType, val []byte, start int) {
 	case itemArrayClose:
 		p.buf.WriteString("]")
 	case itemComma:
-		p.buf.WriteString(",")
+		if t != itemArrayClose && t != itemObjectClose {
+			p.buf.WriteString(",")
+		}
 	case itemObjectClose:
 		p.buf.WriteString("}")
 	case itemColon:
 		p.buf.WriteString(":")
 	case itemEOF:
 		return
-		// case itemError:
-		// 	return fmt.Errorf("parse err: %#v", p.item.val)
-		// default:
-		// 	return fmt.Errorf("unknown type: %v", p.item.typ)
+	case itemError:
+		panic(fmt.Errorf("parse err: %#v", p.prevItem.val))
+	default:
+		panic(fmt.Errorf("programmer unknown type: %v", p.prevItem.typ))
 
 	}
+
+	p.prevItem.typ = t
+	p.prevItem.val = val
+	p.prevItem.start = start
 }
 
 func FastStrip(in []byte) ([]byte, error) {
