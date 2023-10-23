@@ -4,15 +4,6 @@ import (
 	"testing"
 )
 
-func toSlice(t *testing.T, items chan item) []item {
-	tl := make([]item, 0, 16)
-	for i := range items {
-		tl = append(tl, i)
-	}
-	t.Logf("tokens: %v", tl)
-	return tl
-}
-
 func lexToSlice(t *testing.T, s string) []*item {
 	l := lex("test-lex", s)
 	items := make([]*item, 0, 16)
@@ -143,6 +134,20 @@ func TestLineComment(t *testing.T) {
 }
 `)
 	checkItem(t, tl[0], `{`)
+}
+
+func TestFieldComment(t *testing.T) {
+	tl := lexToSlice(t, `{
+  "x": null,
+  // 1
+  // 2
+  // 3
+  "y": null,
+}
+`)
+	checkItem(t, tl[8], `// 1`)
+	checkItem(t, tl[10], `// 2`)
+	checkItem(t, tl[12], `// 3`)
 }
 
 func TestRangeComment(t *testing.T) {

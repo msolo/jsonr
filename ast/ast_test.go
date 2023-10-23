@@ -226,9 +226,11 @@ func TestAstParse(t *testing.T) {
 
 	checkParsedVal(`// Leading doc comment.
 {
+  "x": null,
   // Doc1
+  //
   // Doc2
-  "x": null, // Trailer.
+  "y": null, // Trailer.
 }
 /* postamble */
 `,
@@ -250,10 +252,23 @@ func TestAstParse(t *testing.T) {
 			Root: &Object{
 				Fields: []*Field{
 					{
+						Name: &Literal{
+							Type:  LiteralString,
+							Value: `"x"`,
+						},
+						Value: &Literal{
+							Type:  LiteralNull,
+							Value: "null",
+						},
+					},
+					{
 						Doc: &CommentGroup{
 							[]*Comment{
 								{
 									Text: "// Doc1",
+								},
+								{
+									Text: "//",
 								},
 								{
 									Text: "// Doc2",
@@ -269,7 +284,7 @@ func TestAstParse(t *testing.T) {
 						},
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"x"`,
+							Value: `"y"`,
 						},
 						Value: &Literal{
 							Type:  LiteralNull,

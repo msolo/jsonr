@@ -43,7 +43,9 @@ func lexWhitespace(l *lexer) {
 
 func lexWhitespaceOrComment(l *lexer) {
 	lexWhitespace(l)
-	lexComment(l)
+	for lexComment(l) {
+		lexWhitespace(l) // A trailing \n is not part of the comment.
+	}
 	lexWhitespace(l) // A trailing \n is not part of the comment.
 }
 
@@ -211,18 +213,18 @@ func lexString(l *lexer) {
 	}
 }
 
-func lexComment(l *lexer) {
-	if !hasPrefixByte(l.input[l.pos:], '/') {
-		return
+func lexComment(l *lexer) bool {
+	if hasPrefixByte(l.input[l.pos:], '/') {
+		if hasPrefixByte(l.input[l.pos+1:], '/') {
+			lexLineComment(l)
+			return true
+		}
+		if hasPrefixByte(l.input[l.pos+1:], '*') {
+			lexRangeComment(l)
+			return true
+		}
 	}
-	if hasPrefixByte(l.input[l.pos+1:], '/') {
-		lexLineComment(l)
-		return
-	}
-	if hasPrefixByte(l.input[l.pos+1:], '*') {
-		lexRangeComment(l)
-		return
-	}
+	return false
 }
 
 func lexLineComment(l *lexer) {
