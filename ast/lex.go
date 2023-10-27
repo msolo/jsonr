@@ -45,11 +45,15 @@ func (f *fifo) Len() int {
 }
 
 type lexer struct {
-	name    string // used only for error reports.
-	input   []byte // the data being scanned.
-	start   int    // start position of this item.
-	pos     int    // current position in the input.
-	width   int    // width of last rune read from input.
+	name     string // used only for error reports.
+	input    []byte // the data being scanned.
+	start    int    // start position of this item.
+	pos      int    // current position in the input.
+	lastRead int    // size of last read from input.
+
+	// FIXME(msolo) This fifo is essentially an unnecessary buffer. It is used
+	// when an emitter function is not set. Rewriting the parser as an emitter
+	// callback would remove the need for this.
 	items   *fifo
 	emitter func(t itemType, val []byte, start int)
 }
@@ -107,19 +111,19 @@ func (l *lexer) ignore() {
 // next returns the next rune in the input.
 func (l *lexer) next() (b byte, eof bool) {
 	if l.pos >= len(l.input) {
-		l.width = 0
+		l.lastRead = 0
 		return b, true
 	}
-	l.width = 1
+	l.lastRead = 1
 	b = l.input[l.pos]
-	l.pos += l.width
+	l.pos += l.lastRead
 	return b, false
 }
 
 // backup steps back one rune.
 // Can be called only once per call of next.
 func (l *lexer) backup() {
-	l.pos -= l.width
+	l.pos -= l.lastRead
 }
 
 // peek returns but does not consume
