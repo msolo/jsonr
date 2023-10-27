@@ -1,11 +1,12 @@
 package ast
 
 import (
+	"bytes"
 	"testing"
 )
 
 func lexToSlice(t *testing.T, s string) []*item {
-	l := lex("test-lex", s)
+	l := lex("test-lex", []byte(s))
 	items := make([]*item, 0, 16)
 	for {
 		i := l.yield()
@@ -20,8 +21,14 @@ func lexToSlice(t *testing.T, s string) []*item {
 }
 
 func checkItem(t *testing.T, i *item, val string) {
-	if i.val != val {
-		t.Fatalf("expected %#v: got %#v", val, i.val)
+	if !bytes.Equal(i.val, []byte(val)) {
+		t.Fatalf("expected %s: got %s", val, i.val)
+	}
+}
+
+func checkItemHasPrefix(t *testing.T, i *item, val string) {
+	if !bytes.HasPrefix(i.val, []byte(val)) {
+		t.Fatalf("expected %s: got %s", val, i.val)
 	}
 }
 
@@ -31,8 +38,8 @@ func checkTokenVals(t *testing.T, items []*item, val ...string) {
 		t.Fatalf("expected %d tokens: got %d", len(val)+1, len(items))
 	}
 	for i, v := range val {
-		if items[i].val != v {
-			t.Fatalf("expected %#v: got %#v at token %d", v, items[i].val, i)
+		if !bytes.Equal(items[i].val, []byte(v)) {
+			t.Fatalf("expected %#v: got %s at token %d", v, items[i].val, i)
 		}
 	}
 }
@@ -57,6 +64,15 @@ func TestElement(t *testing.T) {
 
 	tl = lexToSlice(t, `false`)
 	checkItem(t, tl[0], `false`)
+
+	tl = lexToSlice(t, `nul`)
+	checkItem(t, tl[0], `failed parsing null`)
+
+	tl = lexToSlice(t, `treu`)
+	checkItem(t, tl[0], `failed parsing true`)
+
+	tl = lexToSlice(t, `fals`)
+	checkItem(t, tl[0], `failed parsing false`)
 
 	// FIXME(msolo) This might not be valid, it's not totally clear. jq
 	// can't parse it, that's for sure.
@@ -88,8 +104,15 @@ func TestElementNumber(t *testing.T) {
 	checkItem(t, tl[0], `-1.1`)
 	tl = lexToSlice(t, `1.1e01`)
 	checkItem(t, tl[0], `1.1e01`)
-	tl = lexToSlice(t, `+1.1e01`)
-	checkItem(t, tl[len(tl)-1], `malformed integer number`)
+	tl = lexToSlice(t, `1.1E01`)
+	checkItem(t, tl[0], `1.1E01`)
+	tl = lexToSlice(t, `1.1e-1`)
+	checkItem(t, tl[0], `1.1e-1`)
+}
+
+func TestElementInvalidNumber(t *testing.T) {
+	tl := lexToSlice(t, `+1.1e01`)
+	checkItemHasPrefix(t, tl[len(tl)-1], `malformed number`)
 }
 
 func TestEmptyArray(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 func TestAstParse(t *testing.T) {
 	checkParsedVal := func(input string, expectedVal interface{}) {
-		v, err := (&astParser{}).Parse(input)
+		v, err := (&astParser{}).Parse([]byte(input))
 		if err != nil {
 			t.Fatalf("parse failed: %#v, err: %T %s \n", input, err, err)
 		}
@@ -32,7 +32,7 @@ func TestAstParse(t *testing.T) {
 		}
 
 		// Can we rewrite the same code we had as input?
-		output := FmtJsonr(v)
+		output := string(FmtJsonr(v))
 		if input != output {
 			diff := difflib.UnifiedDiff{
 				A:        difflib.SplitLines(input),
@@ -55,7 +55,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralString,
-				Value: `"tiptop"`,
+				Value: []byte(`"tiptop"`),
 			},
 		},
 	)
@@ -65,7 +65,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralString,
-				Value: `"\"quoted\""`,
+				Value: []byte(`"\"quoted\""`),
 			},
 		},
 	)
@@ -75,7 +75,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralTrue,
-				Value: "true",
+				Value: []byte("true"),
 			},
 		},
 	)
@@ -85,7 +85,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralFalse,
-				Value: "false",
+				Value: []byte("false"),
 			},
 		},
 	)
@@ -95,7 +95,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralNull,
-				Value: "null",
+				Value: []byte("null"),
 			},
 		},
 	)
@@ -105,7 +105,7 @@ func TestAstParse(t *testing.T) {
 		&File{
 			Root: &Literal{
 				Type:  LiteralNumber,
-				Value: "-3.1981e4",
+				Value: []byte("-3.1981e4"),
 			},
 		},
 	)
@@ -129,7 +129,7 @@ func TestAstParse(t *testing.T) {
 					{
 						Value: &Literal{
 							Type:  LiteralNull,
-							Value: "null",
+							Value: []byte("null"),
 						},
 					},
 				},
@@ -156,11 +156,11 @@ func TestAstParse(t *testing.T) {
 					{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"x"`,
+							Value: []byte(`"x"`),
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
-							Value: "null",
+							Value: []byte("null"),
 						},
 					},
 				},
@@ -178,11 +178,11 @@ func TestAstParse(t *testing.T) {
 					{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"quoted\"x"`,
+							Value: []byte(`"quoted\"x"`),
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
-							Value: "null",
+							Value: []byte("null"),
 						},
 					},
 				},
@@ -202,18 +202,18 @@ func TestAstParse(t *testing.T) {
 					{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"x"`,
+							Value: []byte(`"x"`),
 						},
 						Value: &Object{
 							Fields: []*Field{
 								{
 									Name: &Literal{
 										Type:  LiteralString,
-										Value: `"nested"`,
+										Value: []byte(`"nested"`),
 									},
 									Value: &Literal{
 										Type:  LiteralNull,
-										Value: "null",
+										Value: []byte("null"),
 									},
 								},
 							},
@@ -238,14 +238,14 @@ func TestAstParse(t *testing.T) {
 			Doc: &CommentGroup{
 				[]*Comment{
 					{
-						Text: "// Leading doc comment.",
+						Text: []byte("// Leading doc comment."),
 					},
 				},
 			},
 			Comment: &CommentGroup{
 				[]*Comment{
 					{
-						Text: "/* postamble */",
+						Text: []byte("/* postamble */"),
 					},
 				},
 			},
@@ -254,41 +254,41 @@ func TestAstParse(t *testing.T) {
 					{
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"x"`,
+							Value: []byte(`"x"`),
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
-							Value: "null",
+							Value: []byte("null"),
 						},
 					},
 					{
 						Doc: &CommentGroup{
 							[]*Comment{
 								{
-									Text: "// Doc1",
+									Text: []byte("// Doc1"),
 								},
 								{
-									Text: "//",
+									Text: []byte("//"),
 								},
 								{
-									Text: "// Doc2",
+									Text: []byte("// Doc2"),
 								},
 							},
 						},
 						Comment: &CommentGroup{
 							[]*Comment{
 								{
-									Text: "// Trailer.",
+									Text: []byte("// Trailer."),
 								},
 							},
 						},
 						Name: &Literal{
 							Type:  LiteralString,
-							Value: `"y"`,
+							Value: []byte(`"y"`),
 						},
 						Value: &Literal{
 							Type:  LiteralNull,
-							Value: "null",
+							Value: []byte("null"),
 						},
 					},
 				},
@@ -313,7 +313,7 @@ func TestDumpPathEscaping(t *testing.T) {
 		"a/b": [0,1]
 	}`
 
-	root, err := Parse(s)
+	root, err := ParseString(s)
 	if err != nil {
 		t.Error(err)
 	}
@@ -329,7 +329,7 @@ func TestDumpExprEscaping(t *testing.T) {
 		"a\"b": [0,1]
 	}`
 
-	root, err := Parse(s)
+	root, err := ParseString(s)
 	if err != nil {
 		t.Error(err)
 	}

@@ -30,7 +30,7 @@ func (p *parser) peek() *item {
 
 // Parse a JSON string. Objects will be map[string]interface{}, arrays
 // []interface{} and numbers will be float64 for now.
-func (p *parser) parse(input string) (interface{}, error) {
+func (p *parser) parse(input []byte) (interface{}, error) {
 	p.lex = lex("parse-lexer", input)
 	p.next()
 	p.skipWhitespaceOrComment()
@@ -51,7 +51,7 @@ func (p *parser) skipWhitespaceOrComment() {
 func (p *parser) parseElement() (interface{}, error) {
 	switch p.item.typ {
 	case itemString:
-		return p.item.val[1 : len(p.item.val)-1], nil
+		return string(p.item.val[1 : len(p.item.val)-1]), nil
 	case itemTrue:
 		return true, nil
 	case itemFalse:
@@ -62,7 +62,8 @@ func (p *parser) parseElement() (interface{}, error) {
 		// FIXME(msolo) Doesn't have to be a float if I'm reading the spec
 		// correctly, but perhaps this a concession to informal
 		// compatibility with the scourge that is Javascript?
-		x, err := strconv.ParseFloat(p.item.val, 64)
+		// FIXME(msolo) string copy
+		x, err := strconv.ParseFloat(string(p.item.val), 64)
 		return x, err
 	case itemArrayOpen:
 		return p.parseArray()
@@ -129,7 +130,7 @@ func (p *parser) parseObject() (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			x[key] = val
+			x[string(key)] = val
 
 			p.next()
 			p.skipWhitespaceOrComment()
@@ -145,7 +146,7 @@ func (p *parser) parseObject() (interface{}, error) {
 
 // Unmarshal a JSON string. Objects will be map[string]interface{}, arrays
 // []interface{} and numbers will be float64 for now.
-// jsonr.Unmarshal is slower, but substantially more useful.
-func JsonUnmarshal(in string) (interface{}, error) {
+// jsonr.Unmarshal is faster and more useful, this is mostly for comparison.
+func JsonUnmarshal(in []byte) (interface{}, error) {
 	return (&parser{}).parse(in)
 }

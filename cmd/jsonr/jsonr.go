@@ -40,7 +40,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		root, err := ast.Parse(string(in))
+		root, err := ast.Parse(in)
 		if err != nil {
 			log.Fatal(err)
 		}

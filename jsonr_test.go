@@ -13,7 +13,7 @@ type testDoc struct {
 }
 
 var (
-	vaguelyRealistic = `/*
+	vaguelyRealistic = []byte(`/*
 Preamble with fanfare.
 */
 
@@ -26,17 +26,18 @@ Preamble with fanfare.
   "array": [],
   "dict": {},  // Now we can have a trailing comma here!
 }
-// Postamble.
-`
 
-	benchChunk = `{
+// Postamble.
+`)
+
+	benchChunk = []byte(`{
   "x": "a string",
   "y": 1.0,
   "z": null,
   "array": [],
   "dict": {}
 }
-`
+`)
 )
 
 func TestJson(t *testing.T) {
@@ -61,28 +62,19 @@ func TestJson(t *testing.T) {
 	}
 
 	td2 := &testDoc2{}
-	dec := NewDecoder(bytes.NewBufferString(vaguelyRealistic))
+	dec := NewDecoder(bytes.NewBuffer(vaguelyRealistic))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(td2); err != nil {
 		t.Error(err)
 	}
 }
-
-func BenchmarkJSON(b *testing.B) {
-	in := []byte(benchChunk)
+func BenchmarkJSONUnmarshalEmptyStruct(b *testing.B) {
+	in := benchChunk
+	// I think this causes simple parsing without assinging/allocating any values.
+	// It's not necessarily representative - but hey, benchmark!
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := json.Unmarshal(in, out)
-		if err != nil {
-			b.Errorf("benchmark err: %s", err)
-		}
-	}
-}
-
-func BenchmarkJSONRVanilla(b *testing.B) {
-	in := benchChunk
-	for i := 0; i < b.N; i++ {
-		_, err := ast.JsonUnmarshal(in)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}
@@ -97,8 +89,8 @@ func BenchmarkJSONRVanilla(b *testing.B) {
 // merged loop over bytes. Of course, it is still absolutely
 // "fast-enough" for almost any application I had planned, but best to
 // know the costs.
-func BenchmarkJSONR(b *testing.B) {
-	in := []byte(benchChunk)
+func BenchmarkJSONRUnmarshalEmptyStruct(b *testing.B) {
+	in := benchChunk
 	out := &struct{}{}
 	for i := 0; i < b.N; i++ {
 		err := Unmarshal(in, out)
@@ -108,11 +100,86 @@ func BenchmarkJSONR(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONReal(b *testing.B) {
-	in := []byte(vaguelyRealistic)
-	out := &struct{}{}
+func BenchmarkJSONUnmarshalMap(b *testing.B) {
+	in := benchChunk
+	out := make(map[string]interface{})
 	for i := 0; i < b.N; i++ {
-		err := Unmarshal(in, out)
+		err := json.Unmarshal(in, &out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkJSONRUnmarshalMap(b *testing.B) {
+	in := benchChunk
+	out := make(map[string]interface{})
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(in, &out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkJSONRAstUnmarshalMap(b *testing.B) {
+	in := benchChunk
+	for i := 0; i < b.N; i++ {
+		_, err := ast.JsonUnmarshal(in)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkStrip(b *testing.B) {
+	in := benchChunk
+	for i := 0; i < b.N; i++ {
+		_, err := ast.Strip(in)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkStripReader(b *testing.B) {
+	in := benchChunk
+	br := bytes.NewReader(in)
+	for i := 0; i < b.N; i++ {
+		br.Reset(in)
+		_, err := ast.StripReader(br)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+// func BenchmarkAst2FastStripReader(b *testing.B) {
+// 	in := benchChunk
+// 	br := bytes.NewReader(in)
+// 	for i := 0; i < b.N; i++ {
+// 		br.Reset(in)
+// 		_, err := ast2.FastStripReader(br)
+// 		if err != nil {
+// 			b.Errorf("benchmark err: %s", err)
+// 		}
+// 	}
+// }
+
+func TestStripRealistic(t *testing.T) {
+	in := vaguelyRealistic
+	out, err := ast.Strip(in)
+	if err != nil {
+		t.Errorf("err: %s", err)
+	}
+	t.Logf("stripped: %s", string(out))
+}
+
+func BenchmarkJSONRRealistic(b *testing.B) {
+	in := vaguelyRealistic
+	out := make(map[string]interface{})
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(in, &out)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}

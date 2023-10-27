@@ -4,17 +4,17 @@ import "testing"
 
 func TestParse(t *testing.T) {
 	checkParsedVal := func(input string, expectedVal interface{}) {
-		v, err := (&parser{}).parse(input)
+		v, err := (&parser{}).parse([]byte(input))
 		if err != nil {
 			t.Fatal(input, err)
 		}
 		if v != expectedVal {
-			t.Fatalf(`expected %#v, got %#v`, expectedVal, v)
+			t.Fatalf(`expected %T %#v, got %T, %v, %s`, expectedVal, expectedVal, v, v, v)
 		}
 	}
 
 	checkParsedArray := func(input string, expectedVals []interface{}) {
-		v, err := (&parser{}).parse(input)
+		v, err := (&parser{}).parse([]byte(input))
 		if err != nil {
 			t.Fatal(input, err)
 		}
@@ -31,7 +31,7 @@ func TestParse(t *testing.T) {
 	}
 
 	checkParsedObject := func(input string, expectedVals map[string]interface{}) {
-		v, err := (&parser{}).parse(input)
+		v, err := (&parser{}).parse([]byte(input))
 		if err != nil {
 			t.Fatalf(`input %#v len:%d err: %s`, input, len(input), err)
 		}
