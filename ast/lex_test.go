@@ -88,7 +88,13 @@ func TestElementNumber(t *testing.T) {
 	checkItem(t, tl[0], `-1.1`)
 	tl = lexToSlice(t, `1.1e01`)
 	checkItem(t, tl[0], `1.1e01`)
-	tl = lexToSlice(t, `+1.1e01`)
+	tl = lexToSlice(t, `1.1E01`)
+	checkItem(t, tl[0], `1.1E01`)
+	tl = lexToSlice(t, `1.1e-1`)
+	checkItem(t, tl[0], `1.1e-1`)
+}
+func TestElementInvalidNumber(t *testing.T) {
+	tl := lexToSlice(t, `+1.1e01`)
 	checkItem(t, tl[len(tl)-1], `malformed integer number`)
 }
 
