@@ -20,7 +20,7 @@ func Unmarshal(data []byte, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(js), v)
+	return json.Unmarshal(js, v)
 }
 
 type jsonrReader struct {

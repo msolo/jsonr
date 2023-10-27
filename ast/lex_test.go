@@ -65,6 +65,15 @@ func TestElement(t *testing.T) {
 	tl = lexToSlice(t, `false`)
 	checkItem(t, tl[0], `false`)
 
+	tl = lexToSlice(t, `nul`)
+	checkItem(t, tl[0], `failed parsing null`)
+
+	tl = lexToSlice(t, `treu`)
+	checkItem(t, tl[0], `failed parsing true`)
+
+	tl = lexToSlice(t, `fals`)
+	checkItem(t, tl[0], `failed parsing false`)
+
 	// FIXME(msolo) This might not be valid, it's not totally clear. jq
 	// can't parse it, that's for sure.
 	tl = lexToSlice(t, `nullnull`)

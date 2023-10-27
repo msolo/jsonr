@@ -136,12 +136,6 @@ func (p *astParser) next() *item {
 	return p.item
 }
 
-func (p *astParser) peek() *item {
-	i := p.lex.yield()
-	p.peekItems = append(p.peekItems, i)
-	return i
-}
-
 // Parse the input string into an AST.  This is only useful when you
 // are planning to programmatically manipulate the tree.
 func (p *astParser) Parse(input []byte) (Node, error) {
@@ -310,7 +304,7 @@ func (p *astParser) parseObject() (Node, error) {
 				continue
 			}
 			// Handle trailing comment regardless of trailing comma.
-			// FIXME(msolo) Having val /* comment */, ] seems visually
+			// FIXME(msolo) Having val /* comment */, } seems visually
 			// confusing but legal.
 			f.Comment = p.parseCommentGroup()
 		default:
@@ -350,13 +344,6 @@ func (f *formatter) indent() []byte {
 }
 
 func (f *formatter) fmtNode(n Node) []byte {
-	// FIXME(msolo) WTF, (nil,nil) strikes again? a typed nil is coerced
-	// to Node and we no longer get equivalence?
-	// This only applies comment so just deal with it there.
-	// if n == nil {
-	// 	return ""
-	// }
-
 	if f.buf == nil {
 		f.buf = bytes.NewBuffer(make([]byte, 0, 64))
 	}
@@ -449,15 +436,14 @@ func (f *formatter) fmtNode(n Node) []byte {
 			f.skipNextIndent = false
 			return nil
 		}
-		// FIXME(msolo) Surely this isn't necessary? See above.
+		// FIXME(msolo) We return CommentGroup as a typed nil. This is a mess.
 		if tn == nil {
 			return nil
 		}
 		for _, c := range tn.List {
 			b.Write(f.indent())
 			b.Write(c.Text)
-			// FIXME(msolo)
-			if bytes.HasPrefix(c.Text, []byte("//")) {
+			if bytes.HasPrefix(c.Text, commentStart) {
 				b.WriteByte('\n')
 			}
 		}

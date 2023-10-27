@@ -65,19 +65,27 @@ func lexValue(l *lexer) {
 	case '"':
 		lexString(l)
 	case 't':
-		//"true"):
-		l.pos += 4
-		l.emit(itemTrue)
+		l.pos += 1
+		if l.acceptByte('r') && l.acceptByte('u') && l.acceptByte('e') {
+			l.emit(itemTrue)
+		} else {
+			l.errorf("failed parsing true")
+		}
 	case 'f':
-		//strings.HasPrefix(prefix, "false"):
-		l.pos += 5
-		l.emit(itemFalse)
+		l.pos += 1
+		if l.acceptByte('a') && l.acceptByte('l') && l.acceptByte('s') && l.acceptByte('e') {
+			l.emit(itemFalse)
+		} else {
+			l.errorf("failed parsing false")
+		}
 	case 'n':
-		//strings.HasPrefix(prefix, "null"):
-		l.pos += 4
-		l.emit(itemNull)
+		l.pos += 1
+		if l.acceptByte('u') && l.acceptByte('l') && l.acceptByte('l') {
+			l.emit(itemNull)
+		} else {
+			l.errorf("failed parsing null")
+		}
 	case '-':
-		//strings.ContainsAny(prefix, "-0123456789"):
 		lexNumber(l)
 	case '+':
 		l.errorf("malformed number: %s", l.input[l.pos:min(len(l.input), l.pos+10)])
@@ -176,7 +184,6 @@ func lexElements(l *lexer) {
 	}
 }
 
-var validNumbers = []byte("0123456789")
 var validExponent = []byte("eE")
 var validSign = []byte("+-")
 
@@ -184,7 +191,7 @@ func lexNumber(l *lexer) {
 	// optional prefix
 	l.acceptByte('-')
 	// The spec says leading zeros are verboten, but that seems pointlessly pedantic.
-	if !l.acceptRun(validNumbers) {
+	if !l.acceptInt() {
 		l.errorf("malformed integer number")
 		return
 	}
@@ -235,6 +242,9 @@ func lexString(l *lexer) {
 		}
 	}
 }
+
+var commentStart = []byte("//")
+var commentStartRange = []byte("/*")
 
 func lexComment(l *lexer) bool {
 	if l.peek() == '/' {
