@@ -14,8 +14,7 @@ type stripper struct {
 	prevItem *item
 }
 
-// Parse a JSON string. Objects will be map[string]interface{}, arrays
-// []interface{} and numbers will be float64 for now.
+// Strip all JSONR enhancements and emit clean JSON.
 func (p *stripper) Strip(input []byte) ([]byte, error) {
 	p.lex = lex("parse-lexer", input)
 	p.lex.emitter = p.emitter
@@ -77,16 +76,20 @@ func (p *stripper) emitter(t itemType, val []byte, start int) {
 	p.prevItem.start = start
 }
 
-func FastStrip(in []byte) ([]byte, error) {
+func Strip(in []byte) ([]byte, error) {
 	return (&stripper{buf: bytes.NewBuffer(make([]byte, 0, 256))}).Strip(in)
 }
 
-func JsonUnmarshalFast(in []byte, x interface{}) error {
-	b, err := (&stripper{buf: bytes.NewBuffer(make([]byte, 0, 256))}).Strip(in)
+func StripReader(r io.Reader) ([]byte, error) {
+	in, err := ioutil.ReadAll(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return json.Unmarshal(b, x)
+	stripped, err := Strip(in)
+	if err != nil {
+		return nil, err
+	}
+	return stripped, nil
 }
 
 type stripReader struct {
@@ -94,19 +97,15 @@ type stripReader struct {
 	buf *bytes.Buffer
 }
 
-func (jr *stripReader) Read(b []byte) (n int, err error) {
-	if jr.buf == nil {
-		in, err := ioutil.ReadAll(jr.r)
+func (sr *stripReader) Read(b []byte) (n int, err error) {
+	if sr.buf == nil {
+		stripped, err := StripReader(sr.r)
 		if err != nil {
 			return 0, err
 		}
-		stripped, err := FastStrip(in)
-		if err != nil {
-			return 0, err
-		}
-		jr.buf = bytes.NewBuffer(stripped)
+		sr.buf = bytes.NewBuffer(stripped)
 	}
-	return jr.buf.Read(b)
+	return sr.buf.Read(b)
 }
 
 func NewDecoder(r io.Reader) *json.Decoder {

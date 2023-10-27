@@ -26,6 +26,7 @@ Preamble with fanfare.
   "array": [],
   "dict": {},  // Now we can have a trailing comma here!
 }
+
 // Postamble.
 `)
 
@@ -80,27 +81,6 @@ func BenchmarkJSONUnmarshalEmptyStruct(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONUnmarshalMap(b *testing.B) {
-	in := benchChunk
-	out := make(map[string]interface{})
-	for i := 0; i < b.N; i++ {
-		err := json.Unmarshal(in, &out)
-		if err != nil {
-			b.Errorf("benchmark err: %s", err)
-		}
-	}
-}
-
-func BenchmarkJSONRUnmarshalMap(b *testing.B) {
-	in := benchChunk
-	for i := 0; i < b.N; i++ {
-		_, err := ast.JsonUnmarshal(in)
-		if err != nil {
-			b.Errorf("benchmark err: %s", err)
-		}
-	}
-}
-
 // FIXME(msolo) Benchmark confirms that stripping comments is 2.5x
 // more expensive than simple JSON parsing. I would accept 2x given
 // the naive approach of scanning twice. The original channel approach
@@ -120,40 +100,75 @@ func BenchmarkJSONRUnmarshalEmptyStruct(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONRUnmarshalEmptyStructFast(b *testing.B) {
-	in := benchChunk
-	out := &struct{}{}
-	for i := 0; i < b.N; i++ {
-		err := ast.JsonUnmarshalFast(in, out)
-		if err != nil {
-			b.Errorf("benchmark err: %s", err)
-		}
-	}
-}
-func BenchmarkJSONRUnmarshalMapFast(b *testing.B) {
+func BenchmarkJSONUnmarshalMap(b *testing.B) {
 	in := benchChunk
 	out := make(map[string]interface{})
 	for i := 0; i < b.N; i++ {
-		err := ast.JsonUnmarshalFast(in, &out)
+		err := json.Unmarshal(in, &out)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}
 	}
 }
 
-func BenchmarkJSONRFastStrip(b *testing.B) {
+func BenchmarkJSONRUnmarshalMap(b *testing.B) {
+	in := benchChunk
+	out := make(map[string]interface{})
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(in, &out)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkJSONRAstUnmarshalMap(b *testing.B) {
 	in := benchChunk
 	for i := 0; i < b.N; i++ {
-		_, err := ast.FastStrip(in)
+		_, err := ast.JsonUnmarshal(in)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}
 	}
 }
 
-func TestJSONRFastStripRealistic(t *testing.T) {
+func BenchmarkStrip(b *testing.B) {
+	in := benchChunk
+	for i := 0; i < b.N; i++ {
+		_, err := ast.Strip(in)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+func BenchmarkStripReader(b *testing.B) {
+	in := benchChunk
+	br := bytes.NewReader(in)
+	for i := 0; i < b.N; i++ {
+		br.Reset(in)
+		_, err := ast.StripReader(br)
+		if err != nil {
+			b.Errorf("benchmark err: %s", err)
+		}
+	}
+}
+
+// func BenchmarkAst2FastStripReader(b *testing.B) {
+// 	in := benchChunk
+// 	br := bytes.NewReader(in)
+// 	for i := 0; i < b.N; i++ {
+// 		br.Reset(in)
+// 		_, err := ast2.FastStripReader(br)
+// 		if err != nil {
+// 			b.Errorf("benchmark err: %s", err)
+// 		}
+// 	}
+// }
+
+func TestStripRealistic(t *testing.T) {
 	in := vaguelyRealistic
-	out, err := ast.FastStrip(in)
+	out, err := ast.Strip(in)
 	if err != nil {
 		t.Errorf("err: %s", err)
 	}
@@ -162,10 +177,9 @@ func TestJSONRFastStripRealistic(t *testing.T) {
 
 func BenchmarkJSONRRealistic(b *testing.B) {
 	in := vaguelyRealistic
-	out := &struct{}{}
+	out := make(map[string]interface{})
 	for i := 0; i < b.N; i++ {
-		err := ast.JsonUnmarshalFast(in, &out)
-		//err := Unmarshal(in, out)
+		err := Unmarshal(in, &out)
 		if err != nil {
 			b.Errorf("benchmark err: %s", err)
 		}

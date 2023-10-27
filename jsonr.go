@@ -6,41 +6,19 @@
 package jsonr
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 
 	"github.com/msolo/jsonr/ast"
 )
 
 // See json.Unmarshal.
 func Unmarshal(data []byte, v interface{}) error {
-	js, err := Convert2Json(data)
+	js, err := ast.Strip(data)
 	if err != nil {
 		return err
 	}
 	return json.Unmarshal(js, v)
-}
-
-type jsonrReader struct {
-	r   io.Reader
-	buf *bytes.Buffer
-}
-
-func (jr *jsonrReader) Read(b []byte) (n int, err error) {
-	if jr.buf == nil {
-		in, err := ioutil.ReadAll(jr.r)
-		if err != nil {
-			return 0, err
-		}
-		stripped, err := Convert2Json(in)
-		if err != nil {
-			return 0, err
-		}
-		jr.buf = bytes.NewBuffer(stripped)
-	}
-	return jr.buf.Read(b)
 }
 
 // FIXME(msolo) This strips a whole buffer at a time rather than
@@ -50,12 +28,12 @@ func (jr *jsonrReader) Read(b []byte) (n int, err error) {
 //
 // See json.NewDecoder.
 func NewDecoder(r io.Reader) *json.Decoder {
-	jr := &jsonrReader{r: r}
-	return json.NewDecoder(jr)
+	return ast.NewDecoder(r)
 }
 
 // Return a JSON-compatible string from a JSONR source string.
-// This removes comments and normalizes trailing commas.
+// This removes comments, normalizes trailing commas and generally
+// pretty-prints.
 func Convert2Json(in []byte) ([]byte, error) {
 	tree, err := ast.Parse(in)
 	if err != nil {
