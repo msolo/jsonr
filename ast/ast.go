@@ -338,16 +338,6 @@ type formatter struct {
 	buf                *bytes.Buffer
 }
 
-// Too clever? Doens't seem to help...
-var indent = [][]byte{
-	[]byte(""),
-	[]byte("  "),
-	[]byte("    "),
-	[]byte("      "),
-	[]byte("        "),
-	[]byte("          "),
-}
-
 var valueDelimiter = []byte(": ")
 var indentDelimiter = []byte("  ")
 
@@ -357,7 +347,6 @@ func (f *formatter) indent() []byte {
 		return nil
 	}
 	return bytes.Repeat(indentDelimiter, f.indentLevel)
-	//return indent[f.indentLevel]
 }
 
 func (f *formatter) fmtNode(n Node) []byte {
@@ -368,7 +357,6 @@ func (f *formatter) fmtNode(n Node) []byte {
 	// 	return ""
 	// }
 
-	//b := &bytes.Buffer{}
 	if f.buf == nil {
 		f.buf = bytes.NewBuffer(make([]byte, 0, 64))
 	}
