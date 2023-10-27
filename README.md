@@ -5,7 +5,9 @@ JSONR allows parsing chunks of JSON that contain helpful comments as well as str
 
 The original motivation was to have usable config files without having to resort to things like YAML that are staggeringly complex despite apparent simplicity.
 
-The performance of the main interfaces are not amazing, but they are about 10x faster than trying to use Jsonnet to handle this degenerate case.
+The `jsonr` package is drop-in compatible for decodeing the `json` package in the standard library. 
+
+The performance of this parser is perfectly adequate. Although it is 60% slower than the `json` decoder in the Go standard library, it manages to be about 10x faster than trying to use Jsonnet to handle this degenerate case of simple commented JSON.
 
 
 ## Sample JSONR Snippet
