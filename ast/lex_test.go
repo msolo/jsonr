@@ -26,6 +26,12 @@ func checkItem(t *testing.T, i *item, val string) {
 	}
 }
 
+func checkItemHasPrefix(t *testing.T, i *item, val string) {
+	if !bytes.HasPrefix(i.val, []byte(val)) {
+		t.Fatalf("expected %s: got %s", val, i.val)
+	}
+}
+
 func checkTokenVals(t *testing.T, items []*item, val ...string) {
 	// +1 for implicit EOF
 	if len(items) != len(val)+1 {
@@ -97,7 +103,7 @@ func TestElementNumber(t *testing.T) {
 
 func TestElementInvalidNumber(t *testing.T) {
 	tl := lexToSlice(t, `+1.1e01`)
-	checkItem(t, tl[len(tl)-1], `malformed integer number`)
+	checkItemHasPrefix(t, tl[len(tl)-1], `malformed number`)
 }
 
 func TestEmptyArray(t *testing.T) {

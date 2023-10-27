@@ -79,6 +79,8 @@ func lexValue(l *lexer) {
 	case '-':
 		//strings.ContainsAny(prefix, "-0123456789"):
 		lexNumber(l)
+	case '+':
+		l.errorf("malformed number: %s", l.input[l.pos:min(len(l.input), l.pos+10)])
 	default:
 		if '0' <= b && b <= '9' {
 			lexNumber(l)
