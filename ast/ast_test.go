@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pmezard/go-difflib/difflib"
+	"github.com/ianbruene/go-difflib/difflib"
 )
 
 func TestAstParse(t *testing.T) {
@@ -338,7 +338,6 @@ func TestDumpExprEscaping(t *testing.T) {
 	expected := `.["a\"b"][0] = 0
 .["a\"b"][1] = 1
 `
-	t.Log(out)
 	if out != expected {
 		t.Errorf("expected %s; got %s", expected, out)
 	}
